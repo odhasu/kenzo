@@ -25,9 +25,7 @@ export default async function TrainPage() {
             <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
               <Link
                 href="/dashboard"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                className="nav-link"
               >
                 Funnels
               </Link>
@@ -36,9 +34,7 @@ export default async function TrainPage() {
               </Link>
               <Link
                 href="/dashboard/developer"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                className="nav-link"
               >
                 Dev Console 🛠️
               </Link>

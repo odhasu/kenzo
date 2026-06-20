@@ -25,17 +25,13 @@ export default async function DashboardPage() {
               </Link>
               <Link
                 href="/dashboard/train"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                className="nav-link"
               >
                 AI Training ✦
               </Link>
               <Link
                 href="/dashboard/developer"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                className="nav-link"
               >
                 Dev Console 🛠️
               </Link>

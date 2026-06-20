@@ -214,13 +214,13 @@ export default function DeveloperPage() {
             <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
               <Link
                 href="/dashboard"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
+                className="nav-link"
               >
                 Funnels
               </Link>
               <Link
                 href="/dashboard/train"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
+                className="nav-link"
               >
                 AI Training ✦
               </Link>
