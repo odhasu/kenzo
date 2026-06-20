@@ -3,11 +3,12 @@
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { Block, BlockType, FormField, FunnelSettings, ThemeId } from '@/types/blocks'
+import type { Block, BlockType, FormField, FunnelSettings, ThemeId, BackgroundId } from '@/types/blocks'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { createClient } from '@/lib/supabase/client'
 import { AiBuilderPanel } from './AiBuilderPanel'
 import { resolveTokens, THEME_PRESETS } from '@/lib/themes'
+import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 
 // ─── Sidebar block definitions ────────────────────────────────────────────────
 
@@ -254,16 +255,22 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
                 <span>Add a section from the left sidebar</span>
               </div>
             ) : isDark ? (
-              <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif` }}>
-                {blocks.map((block, i) => (
-                  <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
-                ))}
+              <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
+                <FunnelBackground background={settings.background} accent={settings.accentColor} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  {blocks.map((block, i) => (
+                    <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                  ))}
+                </div>
               </div>
             ) : (
-              <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif` }}>
-                {blocks.map((block, i) => (
-                  <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
-                ))}
+              <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
+                <FunnelBackground background={settings.background} accent={settings.accentColor} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  {blocks.map((block, i) => (
+                    <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -408,6 +415,19 @@ function CtrlBtn({ onClick, disabled, label, danger }: { onClick: () => void; di
 }
 
 // ─── Global Settings Panel ────────────────────────────────────────────────────
+
+const BGS: { id: BackgroundId; label: string }[] = [
+  { id: 'none', label: 'None' },
+  { id: 'gradient', label: 'Gradient' },
+  { id: 'particles', label: 'Particles' },
+  { id: 'grid', label: 'Grid' },
+  { id: 'glow', label: 'Glow' },
+  { id: 'aurora', label: 'Aurora' },
+  { id: 'dots', label: 'Dots' },
+  { id: 'noise', label: 'Noise' },
+  { id: 'waves', label: 'Waves' },
+  { id: 'stars', label: 'Stars' },
+]
 
 const FONTS = ['Inter', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat']
 
@@ -611,6 +631,34 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
         <input type="range" min={0} max={50} value={settings.buttonRadius} onChange={e => onChange({ buttonRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
           <span>0px</span><span>50px</span>
+        </div>
+      </>)}
+
+      {/* Background */}
+      {section('Background')}
+      {wrap(<>
+        {label('Background style')}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+          {(BGS as { id: BackgroundId; label: string }[]).map(bg => (
+            <button
+              key={bg.id}
+              onClick={() => onChange({ background: bg.id })}
+              style={{
+                padding: '8px 6px',
+                borderRadius: '7px',
+                border: settings.background === bg.id ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+                background: settings.background === bg.id ? 'rgba(255,255,255,0.06)' : 'transparent',
+                color: settings.background === bg.id ? '#fff' : 'rgba(255,255,255,0.4)',
+                fontSize: '10px',
+                fontWeight: settings.background === bg.id ? 700 : 500,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                fontFamily: 'inherit',
+              }}
+            >
+              {bg.label}
+            </button>
+          ))}
         </div>
       </>)}
 

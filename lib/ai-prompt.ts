@@ -29,6 +29,7 @@ Every block: "id" (UUID), "type", "props" matching its schema.
 - "textColor": hex override or ""
 - "font": 'Inter' | 'Satoshi' | 'DM Sans' | 'Poppins' | 'Plus Jakarta Sans' | 'Space Grotesk' | 'Montserrat'
 - "tickerSpeed": 8–80
+- "background": 'none' | 'gradient' | 'particles' | 'grid' | 'glow' | 'aurora' | 'dots' | 'noise' | 'waves' | 'stars'
 - "pageTitle": string
 - "faviconUrl": string
 
@@ -58,6 +59,9 @@ Before outputting, scan your copy:
 3. Does every sentence have the same rhythm? Vary it.
 4. Would a real high-ticket seller write this? If not, fix it.
 5. Any hedging or weasel attributions? Make them direct or cut them.
+
+--- SECTION CONSTRAINT ---
+When the user specifies a SECTION ORDER constraint (e.g. "ONLY these section types, in this exact order"), follow it EXACTLY. Generate exactly one block per type in the given order. Do NOT add, remove, or reorder sections. If the list is [ic-hero, ic-ticker, ic-cards, ic-cta], produce exactly those four blocks in that order — nothing more, nothing less.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -96,6 +100,7 @@ Output:
     "textColor": "",
     "font": "Space Grotesk",
     "tickerSpeed": 30,
+    "background": "none",
     "pageTitle": "High Ticket Reselling Funnel",
     "faviconUrl": ""
   },
@@ -149,6 +154,7 @@ Output:
     "textColor": "",
     "font": "Space Grotesk",
     "tickerSpeed": 30,
+    "background": "none",
     "pageTitle": "High Ticket Reselling Funnel",
     "faviconUrl": ""
   },

@@ -3,6 +3,7 @@ export type BlockType =
   | 'ic-hero' | 'ic-ticker' | 'ic-cards' | 'ic-faq' | 'ic-apply' | 'ic-cta' | 'ic-results'
 
 export type ThemeId = 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blue'
+export type BackgroundId = 'none' | 'gradient' | 'particles' | 'grid' | 'glow' | 'aurora' | 'dots' | 'noise' | 'waves' | 'stars'
 
 export type FormField = 'email' | 'name' | 'phone'
 
@@ -94,6 +95,7 @@ export interface FunnelSettings {
   gradientHeadlines: boolean
   glassmorphism: boolean
   tickerSpeed: number
+  background: BackgroundId
   pageTitle: string
   faviconUrl: string
   ogImage: string
@@ -121,6 +123,7 @@ export const DEFAULT_SETTINGS: FunnelSettings = {
   gradientHeadlines: true,
   glassmorphism: false,
   tickerSpeed: 34,
+  background: 'none',
   pageTitle: '',
   faviconUrl: '',
   ogImage: '',

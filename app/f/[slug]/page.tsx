@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
+import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import type { Block, FunnelSettings } from '@/types/blocks'
 import { DEFAULT_SETTINGS } from '@/types/blocks'
 import { resolveTokens } from '@/lib/themes'
@@ -77,18 +78,23 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
       <div
         style={{
           ...tokens,
+          position: 'relative',
           background: 'var(--bg)',
           minHeight: '100vh',
           overflowX: 'hidden',
           fontFamily: `'${settings.font}', system-ui, sans-serif`,
         } as React.CSSProperties}
       >
+        <FunnelBackground background={settings.background} accent={settings.accentColor} />
+
         {isDark ? (
-          blocks.map((block) => (
-            <BlockRenderer key={block.id} block={block} settings={settings} />
-          ))
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            {blocks.map((block) => (
+              <BlockRenderer key={block.id} block={block} settings={settings} />
+            ))}
+          </div>
         ) : (
-          <main style={{ maxWidth: '800px', margin: '0 auto', padding: '0 16px' }}>
+          <main style={{ maxWidth: '800px', margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 1 }}>
             {blocks.map((block) => (
               <BlockRenderer key={block.id} block={block} settings={settings} />
             ))}
