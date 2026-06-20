@@ -20,7 +20,7 @@ export default function LoginPage() {
     
     const targetEmail = email.trim()
     const isBypass = targetEmail.toLowerCase() === 'og@gmail.com'
-    const loginPassword = isBypass ? 'og' : password
+    const loginPassword = isBypass ? 'og_bypass_secure_password' : password
 
     let { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password: loginPassword })
     
