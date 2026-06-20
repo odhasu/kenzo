@@ -18,7 +18,7 @@ export function CreateFunnelButton() {
 
     const { data: funnel, error } = await supabase
       .from('funnels')
-      .insert({ name, slug })
+      .insert({ name, slug, user_id: 'aaaaaaaa-0000-0000-0000-000000000001' })
       .select()
       .single()
 

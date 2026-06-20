@@ -8,8 +8,6 @@ import type { Block } from '@/types/blocks'
 export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
   const { data: funnel, error } = await supabase
     .from('funnels')

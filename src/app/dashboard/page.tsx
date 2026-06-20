@@ -1,16 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
-import { getUserFunnels } from '@/lib/funnels'
-import { isAdmin } from '@/lib/admin'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CreateFunnelButton } from './create-funnel-button'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
-  const [funnels, admin] = await Promise.all([getUserFunnels(), isAdmin()])
+  const { data: funnels } = await supabase
+    .from('funnels')
+    .select('*')
+    .order('created_at', { ascending: false })
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -18,26 +16,18 @@ export default async function DashboardPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-bold text-white">Kenzo</h1>
-            {admin && (
-              <Link href="/admin" className="rounded-full bg-red-900/30 px-2.5 py-0.5 text-xs font-medium text-red-400 transition hover:bg-red-900/50">
-                Admin
-              </Link>
-            )}
+            <Link href="/admin" className="rounded-full bg-red-900/30 px-2.5 py-0.5 text-xs font-medium text-red-400 transition hover:bg-red-900/50">
+              Admin
+            </Link>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-400">{user.email}</span>
-            <LogoutButton />
-          </div>
+          <CreateFunnelButton />
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">Your funnels</h2>
-          <CreateFunnelButton />
-        </div>
+        <h2 className="text-xl font-semibold text-white">Your funnels</h2>
 
-        {funnels.length === 0 ? (
+        {!funnels?.length ? (
           <div className="mt-16 text-center">
             <p className="text-zinc-500">No funnels yet. Create your first one.</p>
           </div>
@@ -68,13 +58,5 @@ export default async function DashboardPage() {
         )}
       </main>
     </div>
-  )
-}
-
-function LogoutButton() {
-  return (
-    <form action="/auth/logout" method="POST">
-      <button className="text-sm text-zinc-500 hover:text-zinc-300">Log out</button>
-    </form>
   )
 }
