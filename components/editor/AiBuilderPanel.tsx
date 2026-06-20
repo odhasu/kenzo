@@ -36,6 +36,7 @@ export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPane
   const [loading, setLoading] = useState(false)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [checkingApi, setCheckingApi] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<'deepseek-v4-pro' | 'deepseek-v4-flash'>('deepseek-v4-pro')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom on message change
@@ -92,6 +93,7 @@ export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPane
           blocks,
           settings,
           prompt: textToSend,
+          model: selectedModel,
         }),
       })
 
@@ -206,6 +208,30 @@ export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPane
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', color: '#fff' }}>
       
+      {/* Model Selector */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px', marginBottom: '12px', flexShrink: 0 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>AI Model</span>
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value as 'deepseek-v4-pro' | 'deepseek-v4-flash')}
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '6px',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '4px 8px',
+            outline: 'none',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          <option value="deepseek-v4-pro">DeepSeek V4 Pro (HQ)</option>
+          <option value="deepseek-v4-flash">DeepSeek V4 Flash (Fast)</option>
+        </select>
+      </div>
+
       {/* Scrollable messages area */}
       <div style={{ flex: 1, overflowY: 'auto', marginBottom: '14px', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {messages.map((msg) => (

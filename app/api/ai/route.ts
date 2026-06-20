@@ -183,7 +183,7 @@ Do NOT wrap the output in markdown code blocks. Return ONLY the raw JSON object.
 
 export async function POST(request: Request) {
   try {
-    const { blocks, settings, prompt } = await request.json()
+    const { blocks, settings, prompt, model: reqModel } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: 'Missing prompt' }, { status: 400 })
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
 
     // 1. DeepSeek
     if (deepseekKey) {
-      const model = process.env.DEEPSEEK_API_MODEL || 'deepseek-v4-pro'
+      const model = reqModel || process.env.DEEPSEEK_API_MODEL || 'deepseek-v4-pro'
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
