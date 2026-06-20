@@ -350,7 +350,7 @@ export function CreateFunnelButton() {
 
             {/* WIZARD MODE (CHAT INTERFACE) */}
             {mode === 'wizard' && (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '480px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '350px' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '14px', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

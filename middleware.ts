@@ -26,7 +26,11 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refresh session cookie
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
 
   return supabaseResponse
 }
