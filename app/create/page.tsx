@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { Block } from '@/types/blocks'
+import { DEFAULT_SETTINGS } from '@/types/blocks'
 
 // Default template for the "Start from Base" option
 function makeTemplate(): Block[] {
@@ -153,6 +154,7 @@ export default function CreatePage() {
         slug: 'main',
         title: 'Main Page',
         content: makeTemplate(),
+        settings: { ...DEFAULT_SETTINGS },
         order: 0,
       })
 

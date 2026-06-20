@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const SYSTEM_PROMPT = `You are Kenzo AI, a design-focused funnel building assistant.
-You are given the current state of a webpage: its blocks (a JSON array) and its global settings (accentColor, bgColor, textColor, font, tickerSpeed, pageTitle, faviconUrl).
+You are given the current state of a webpage: its blocks (a JSON array) and its global settings (theme, accentColor, bgColor, textColor, font, tickerSpeed, pageTitle, faviconUrl).
 Your task is to modify the page blocks and/or global settings based on the user's request.
 
 Here is the schema of the blocks:
@@ -25,9 +25,10 @@ Every block must have:
 - "props": matching the schema for that block type
 
 Here is the schema of the global settings:
-- "accentColor": hex color (e.g. "#39FF14" or "#ff007f")
-- "bgColor": hex color (e.g. "#050505" or "#ffffff")
-- "textColor": hex color (e.g. "#ffffff" or "#000000")
+- "theme": one of 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blue'. Controls the base color scheme. Use 'dark-green' for dark/neon green, 'dark-minimal' for dark/white minimal, 'light-clean' for light/black sophisticated, 'light-blue' for light/blue corporate.
+- "accentColor": optional hex color override for accent (leave empty "" to use theme default)
+- "bgColor": optional hex color override for background (leave empty "" to use theme default)
+- "textColor": optional hex color override for text (leave empty "" to use theme default)
 - "font": string (one of: 'Inter', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat')
 - "tickerSpeed": number (between 8 and 80)
 - "pageTitle": string
@@ -41,7 +42,7 @@ You can:
 - Modify global settings (colors, fonts, pageTitle, etc.)
 
 Design Rules:
-- If the user asks for a theme (dark, light, neon, luxury, corporate, etc.), update the bgColor, textColor, accentColor, and font appropriately to make it look premium.
+- If the user asks for a theme or color change, set the appropriate "theme" value. Use 'dark-green' for dark/neon green, 'dark-minimal' for dark/white minimal, 'light-clean' for light/black sophisticated, 'light-blue' for light/blue corporate. Only set explicit accentColor/bgColor/textColor overrides if the user wants a custom color beyond the theme presets.
 - Never create block types outside of the 12 types defined above.
 - Make changes high-converting, professional, and visually matching the design system.
 - If a block is added, populate it with realistic, premium, context-specific placeholder text instead of lorem ipsum.
@@ -90,15 +91,16 @@ Output:
     }
   ],
   "settings": {
-    "accentColor": "#39FF14",
-    "bgColor": "#050505",
-    "textColor": "#ffffff",
+    "theme": "dark-green",
+    "accentColor": "",
+    "bgColor": "",
+    "textColor": "",
     "font": "Space Grotesk",
     "tickerSpeed": 30,
     "pageTitle": "High Ticket Reselling Funnel",
     "faviconUrl": ""
   },
-  "explanation": "I have converted the page to dark mode with a neon green accent color and Space Grotesk font. I also added a conversion-focused Hero section and a benefits ticker at the top."
+  "explanation": "I have applied the dark-green theme with Space Grotesk font. I also added a conversion-focused Hero section and a benefits ticker at the top."
 }
 
 Example 2:
@@ -174,15 +176,16 @@ Output:
     }
   ],
   "settings": {
+    "theme": "dark-green",
     "accentColor": "#ff007f",
-    "bgColor": "#050505",
-    "textColor": "#ffffff",
+    "bgColor": "",
+    "textColor": "",
     "font": "Space Grotesk",
     "tickerSpeed": 30,
     "pageTitle": "High Ticket Reselling Funnel",
     "faviconUrl": ""
   },
-  "explanation": "Updated the accent color to pink, changed the Hero CTA link to your custom URL, and added a premium FAQ block at the bottom."
+  "explanation": "Updated the accent color to pink (overriding the dark-green theme's default), changed the Hero CTA link to your custom URL, and added a premium FAQ block at the bottom."
 }
 
 Always return a valid JSON object matching this exact structure:

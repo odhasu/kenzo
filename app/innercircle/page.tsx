@@ -10,6 +10,7 @@ import { ResultsSlider } from '@/components/innercircle/ResultsSlider'
 import { FAQInnercircle } from '@/components/innercircle/FAQInnercircle'
 import { BottomCTA } from '@/components/innercircle/BottomCTA'
 import { InnercircleFooter } from '@/components/innercircle/InnercircleFooter'
+import { resolveTokens } from '@/lib/themes'
 
 export const metadata: Metadata = {
   title: "OGs Inner Circle – Build a $5K-$30K/Month Reselling Business",
@@ -17,8 +18,9 @@ export const metadata: Metadata = {
 }
 
 export default function InnercirclePage() {
+  const tokens = resolveTokens({ theme: 'dark-green' })
   return (
-    <div style={{ background: '#050505', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", minHeight: '100vh', overflowX: 'hidden' }}>
+    <div style={{ ...tokens, background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Inter', system-ui, sans-serif", minHeight: '100vh', overflowX: 'hidden' } as React.CSSProperties}>
       <Background />
       <PageReveal>
         <Hero />

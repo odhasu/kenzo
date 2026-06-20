@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const GREEN = '#39FF14';
-const GREEN_GLOW = 'rgba(57,255,20,0.28)';
-const GREEN_DIM = 'rgba(57,255,20,0.1)';
-const MUTED = 'rgba(255,255,255,0.45)';
+const GREEN = 'var(--accent)';
+const GREEN_GLOW = 'var(--accent-glow)';
+const GREEN_DIM = 'var(--accent-dim)';
+const MUTED = 'var(--text-muted)';
 
 const TOTAL = 7;
 
@@ -68,7 +68,7 @@ function Dots({ current, total }: { current: number; total: number }) {
               width: isActive ? '28px' : '10px',
               height: '10px',
               borderRadius: isActive ? '5px' : '50%',
-              background: isActive ? GREEN : isDone ? 'rgba(57,255,20,0.45)' : 'rgba(255,255,255,0.14)',
+              background: isActive ? GREEN : isDone ? 'color-mix(in srgb, var(--accent) 45%, transparent)' : 'rgba(255,255,255,0.14)',
               boxShadow: isActive ? `0 0 10px ${GREEN_GLOW}` : undefined,
               transition: 'width 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s ease',
             }}
@@ -316,7 +316,7 @@ export function ApplyForm() {
     const waLink = `https://wa.me/${waPhone}`;
 
     return (
-      <div ref={formRef} style={{ background: 'rgba(8,8,8,0.97)', border: '1.5px solid rgba(57,255,20,0.55)', borderRadius: '18px', overflow: 'hidden' }}>
+      <div ref={formRef} style={{ background: 'rgba(8,8,8,0.97)', border: '1.5px solid color-mix(in srgb, var(--accent) 55%, transparent)', borderRadius: '18px', overflow: 'hidden' }}>
         <div style={{ textAlign: 'center', padding: '40px 28px 28px' }}>
           <div style={{ width: '72px', height: '72px', background: GREEN_DIM, border: `2px solid ${GREEN}`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '30px', color: GREEN, boxShadow: `0 0 40px ${GREEN_GLOW}` }}>✓</div>
           <h3 style={{ fontSize: '28px', fontWeight: 900, letterSpacing: '-0.5px', marginBottom: '10px' }}>Application Received!</h3>
@@ -325,7 +325,7 @@ export function ApplyForm() {
             {waContact ? 'on WhatsApp' : 'shortly'}.
           </p>
 
-          <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(57,255,20,0.22)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+          <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
               <span style={{ fontSize: '24px' }}>🎉</span>
               <div style={{ textAlign: 'left' }}>
@@ -382,13 +382,13 @@ export function ApplyForm() {
   return (
     <div
       ref={formRef}
-      style={{ background: 'rgba(8,8,8,0.97)', border: '1.5px solid rgba(57,255,20,0.55)', borderRadius: '18px', overflow: 'hidden', animation: 'icBorderPulse 4s ease-in-out infinite' }}
+      style={{ background: 'rgba(8,8,8,0.97)', border: '1.5px solid color-mix(in srgb, var(--accent) 55%, transparent)', borderRadius: '18px', overflow: 'hidden', animation: 'icBorderPulse 4s ease-in-out infinite' }}
     >
       {/* Q1 */}
       {step === 1 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>1</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>1</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>How long have you been reselling?
             </div>
@@ -406,7 +406,7 @@ export function ApplyForm() {
       {step === 2 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>2</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>2</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>What do you want to achieve with reselling?
             </div>
@@ -424,7 +424,7 @@ export function ApplyForm() {
       {step === 3 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>3</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>3</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>How old are you?
             </div>
@@ -442,7 +442,7 @@ export function ApplyForm() {
       {step === 4 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>4</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>4</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>What&apos;s your total budget for getting started?
             </div>
@@ -460,7 +460,7 @@ export function ApplyForm() {
       {step === 5 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>5</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>5</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>Got it — what&apos;s the best email to reach you at?
             </div>
@@ -474,7 +474,7 @@ export function ApplyForm() {
       {step === 6 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>6</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>6</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>And your name and phone number?
             </div>
@@ -513,7 +513,7 @@ export function ApplyForm() {
       {step === 7 && (
         <div>
           <div style={{ padding: '32px 28px 20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'rgba(57,255,20,0.12)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(57,255,20,0.25)' }}>7</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: GREEN, fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginBottom: '20px', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>7</div>
             <div style={{ fontSize: 'clamp(18px,4vw,26px)', fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.25, marginBottom: '26px', color: 'rgba(255,255,255,0.95)' }}>
               <span style={{ color: GREEN, marginRight: '8px' }}>→</span>Last step — how should we reach you?
             </div>
@@ -531,7 +531,7 @@ export function ApplyForm() {
 }
 
 function launchConfetti() {
-  const colors = ['#39FF14', '#ffffff', '#a0ff60', '#00ff88'];
+  const colors = ['var(--accent)', '#ffffff', '#a0ff60', '#00ff88'];
   for (let i = 0; i < 70; i++) {
     const el = document.createElement('div');
     const size = Math.random() * 8 + 4;

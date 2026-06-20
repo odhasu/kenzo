@@ -24,9 +24,10 @@ Every block must have:
 - "props": matching the schema for that block type
 
 Here is the schema of the global settings:
-- "accentColor": hex color (default: "#39FF14")
-- "bgColor": hex color (default: "#050505")
-- "textColor": hex color (default: "#ffffff")
+- "theme": one of 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blue'. Pick based on the user's aesthetic preference: "Premium Dark (Neon green)" → 'dark-green', "Clean Light (Royal blue)" → 'light-blue', "Luxury Gold" → 'light-clean', "Monochrome Gray" → 'dark-minimal'.
+- "accentColor": optional hex color override for accent (leave empty to use theme default)
+- "bgColor": optional hex color override for background (leave empty to use theme default)
+- "textColor": optional hex color override for text (leave empty to use theme default)
 - "font": string (one of: 'Inter', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat')
 - "tickerSpeed": number (between 8 and 80)
 - "pageTitle": string
@@ -124,7 +125,10 @@ export async function POST(request: Request) {
     const blocks = parsedData.blocks || []
     const settings = parsedData.settings || {}
 
-    // Make sure pageTitle is set
+    // Ensure defaults for critical fields
+    if (!settings.theme) {
+      settings.theme = 'dark-green'
+    }
     if (!settings.pageTitle) {
       settings.pageTitle = answers.name
     }

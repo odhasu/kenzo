@@ -2,6 +2,8 @@ export type BlockType =
   | 'heading' | 'text' | 'button' | 'image' | 'form'
   | 'ic-hero' | 'ic-ticker' | 'ic-cards' | 'ic-faq' | 'ic-apply' | 'ic-cta' | 'ic-results'
 
+export type ThemeId = 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blue'
+
 export type FormField = 'email' | 'name' | 'phone'
 
 export interface HeadingProps { text: string }
@@ -67,6 +69,7 @@ export type BlockProps =
 export type Block = BlockProps & { id: string }
 
 export interface FunnelSettings {
+  theme: ThemeId
   accentColor: string
   bgColor: string
   textColor: string
@@ -77,9 +80,10 @@ export interface FunnelSettings {
 }
 
 export const DEFAULT_SETTINGS: FunnelSettings = {
-  accentColor: '#39FF14',
-  bgColor: '#050505',
-  textColor: '#ffffff',
+  theme: 'dark-green',
+  accentColor: '',
+  bgColor: '',
+  textColor: '',
   font: 'Inter',
   tickerSpeed: 34,
   pageTitle: '',

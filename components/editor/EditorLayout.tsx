@@ -3,10 +3,11 @@
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { Block, BlockType, FormField, FunnelSettings } from '@/types/blocks'
+import type { Block, BlockType, FormField, FunnelSettings, ThemeId } from '@/types/blocks'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { createClient } from '@/lib/supabase/client'
 import { AiBuilderPanel } from './AiBuilderPanel'
+import { resolveTokens, THEME_PRESETS } from '@/lib/themes'
 
 // ─── Sidebar block definitions ────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectedBlock = blocks.find(b => b.id === selectedId) ?? null
-  const isDark = blocks.some(b => b.type.startsWith('ic-'))
+  const isDark = !settings.theme.startsWith('light')
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -180,12 +181,8 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
 
   // ── Canvas CSS vars ───────────────────────────────────────────────────────
 
-  const canvasVars = {
-    '--accent': settings.accentColor,
-    '--accent-glow': settings.accentColor + '47',
-    '--text': settings.textColor,
-    '--bg': settings.bgColor,
-  } as React.CSSProperties
+  const canvasTokens = resolveTokens(settings)
+  const canvasVars = canvasTokens as unknown as React.CSSProperties
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", overflow: 'hidden' }}>
@@ -200,7 +197,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
           </Link>
           <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{funnel.name}</span>
-          <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '100px', background: status === 'published' ? 'rgba(57,255,20,0.12)' : 'rgba(255,255,255,0.06)', color: status === 'published' ? '#39FF14' : 'rgba(255,255,255,0.4)', border: `1px solid ${status === 'published' ? 'rgba(57,255,20,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '100px', background: status === 'published' ? `${settings.accentColor || '#39FF14'}1F` : 'rgba(255,255,255,0.06)', color: status === 'published' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)', border: `1px solid ${status === 'published' ? `${settings.accentColor || '#39FF14'}40` : 'rgba(255,255,255,0.08)'}` }}>
             {status}
           </span>
         </div>
@@ -213,7 +210,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               View live ↗
             </a>
           )}
-          <button onClick={togglePublish} disabled={publishing} style={{ fontSize: '13px', fontWeight: 700, padding: '6px 16px', borderRadius: '8px', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1, background: status === 'published' ? 'rgba(255,255,255,0.08)' : '#39FF14', color: status === 'published' ? '#fff' : '#000' }}>
+          <button onClick={togglePublish} disabled={publishing} style={{ fontSize: '13px', fontWeight: 700, padding: '6px 16px', borderRadius: '8px', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1, background: status === 'published' ? 'rgba(255,255,255,0.08)' : settings.accentColor || '#39FF14', color: status === 'published' ? '#fff' : '#000' }}>
             {publishing ? '…' : status === 'published' ? 'Unpublish' : 'Publish'}
           </button>
         </div>
@@ -235,7 +232,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '10px', paddingLeft: '4px' }}>Layers</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {blocks.map((block, i) => (
-                  <button key={block.id} onClick={() => setSelectedId(block.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '6px', border: `1px solid ${selectedId === block.id ? 'rgba(57,255,20,0.3)' : 'transparent'}`, background: selectedId === block.id ? 'rgba(57,255,20,0.07)' : 'transparent', color: selectedId === block.id ? '#39FF14' : 'rgba(255,255,255,0.5)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                  <button key={block.id} onClick={() => setSelectedId(block.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '6px', border: `1px solid ${selectedId === block.id ? `${settings.accentColor || '#39FF14'}4D` : 'transparent'}`, background: selectedId === block.id ? `${settings.accentColor || '#39FF14'}12` : 'transparent', color: selectedId === block.id ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.5)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', width: '14px', flexShrink: 0 }}>{i + 1}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>{block.type.replace('ic-', '')}</span>
                   </button>
@@ -282,13 +279,13 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
                 flex: 1,
                 background: 'none',
                 border: 'none',
-                color: rightPanelTab === 'settings' ? '#39FF14' : 'rgba(255,255,255,0.4)',
+                color: rightPanelTab === 'settings' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
                 fontSize: '11px',
                 fontWeight: 700,
                 letterSpacing: '1px',
                 textTransform: 'uppercase',
                 padding: '14px 0',
-                borderBottom: rightPanelTab === 'settings' ? '2px solid #39FF14' : '2px solid transparent',
+                borderBottom: rightPanelTab === 'settings' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 fontFamily: 'inherit',
@@ -302,13 +299,13 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
                 flex: 1,
                 background: 'none',
                 border: 'none',
-                color: rightPanelTab === 'ai' ? '#39FF14' : 'rgba(255,255,255,0.4)',
+                color: rightPanelTab === 'ai' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
                 fontSize: '11px',
                 fontWeight: 700,
                 letterSpacing: '1px',
                 textTransform: 'uppercase',
                 padding: '14px 0',
-                borderBottom: rightPanelTab === 'ai' ? '2px solid #39FF14' : '2px solid transparent',
+                borderBottom: rightPanelTab === 'ai' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 fontFamily: 'inherit',
@@ -386,7 +383,7 @@ function CanvasBlock({ block, index, total, selected, onSelect, onMove, onDelete
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ position: 'relative', outline: selected ? '2px solid #39FF14' : hovered ? '2px solid rgba(57,255,20,0.35)' : '2px solid transparent', outlineOffset: '-2px', transition: 'outline 0.1s', cursor: 'pointer' }}
+      style={{ position: 'relative', outline: selected ? `2px solid ${settings.accentColor || 'var(--accent)'}` : hovered ? `2px solid ${settings.accentColor || 'var(--accent)'}59` : '2px solid transparent', outlineOffset: '-2px', transition: 'outline 0.1s', cursor: 'pointer' }}
     >
       {(hovered || selected) && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '4px', zIndex: 10 }}>
@@ -420,32 +417,71 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
   const wrap = (content: React.ReactNode) => <div style={{ marginBottom: '14px' }}>{content}</div>
   const section = (title: string) => <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', margin: '18px 0 10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>{title}</p>
 
+  // Resolved values for display when stored field is empty (using theme default)
+  const tokens = resolveTokens(settings)
+  const resolvedAccent = settings.accentColor || tokens['--accent']
+  const resolvedBg = settings.bgColor || tokens['--bg']
+  const resolvedText = settings.textColor || tokens['--text']
+
   return (
     <div>
       <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '4px' }}>Site Settings</p>
       <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', marginBottom: '16px' }}>Click a block to edit it, or configure global settings here.</p>
 
+      {/* Theme */}
+      {section('Theme')}
+      {wrap(<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+        {(Object.values(THEME_PRESETS) as { id: ThemeId; name: string; cssVars: Record<string, string> }[]).map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => onChange({ theme: preset.id, accentColor: '', bgColor: '', textColor: '' })}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '8px 4px',
+              borderRadius: '8px',
+              border: settings.theme === preset.id ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+              background: settings.theme === preset.id ? 'rgba(255,255,255,0.06)' : 'transparent',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--bg'], border: '1px solid rgba(255,255,255,0.15)' }} />
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--accent'], border: '1px solid rgba(255,255,255,0.15)' }} />
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--text'], border: '1px solid rgba(255,255,255,0.15)' }} />
+            </div>
+            <span style={{ fontSize: '10px', color: settings.theme === preset.id ? '#fff' : 'rgba(255,255,255,0.4)', fontWeight: settings.theme === preset.id ? 700 : 500 }}>
+              {preset.name}
+            </span>
+          </button>
+        ))}
+      </div>)}
+
       {/* Colors */}
       {section('Colors')}
+      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginBottom: '10px', fontStyle: 'italic' }}>Leave empty to use theme default. Fill in to override.</p>
       {wrap(<>
         {label('Accent color')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={settings.accentColor} onChange={e => onChange({ accentColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
-          <input type="text" value={settings.accentColor} onChange={e => onChange({ accentColor: e.target.value })} style={{ ...inp, flex: 1 }} />
+          <input type="color" value={resolvedAccent} onChange={e => onChange({ accentColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="text" value={settings.accentColor} onChange={e => onChange({ accentColor: e.target.value })} placeholder={tokens['--accent']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
       {wrap(<>
         {label('Background')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={settings.bgColor} onChange={e => onChange({ bgColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
-          <input type="text" value={settings.bgColor} onChange={e => onChange({ bgColor: e.target.value })} style={{ ...inp, flex: 1 }} />
+          <input type="color" value={resolvedBg} onChange={e => onChange({ bgColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="text" value={settings.bgColor} onChange={e => onChange({ bgColor: e.target.value })} placeholder={tokens['--bg']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
       {wrap(<>
         {label('Text color')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={settings.textColor} onChange={e => onChange({ textColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
-          <input type="text" value={settings.textColor} onChange={e => onChange({ textColor: e.target.value })} style={{ ...inp, flex: 1 }} />
+          <input type="color" value={resolvedText} onChange={e => onChange({ textColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="text" value={settings.textColor} onChange={e => onChange({ textColor: e.target.value })} placeholder={tokens['--text']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
 
@@ -462,7 +498,7 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
       {section('Ticker & Scroll')}
       {wrap(<>
         {label(`Scroll speed — ${settings.tickerSpeed}s`)}
-        <input type="range" min={8} max={80} value={settings.tickerSpeed} onChange={e => onChange({ tickerSpeed: Number(e.target.value) })} style={{ width: '100%', accentColor: '#39FF14', cursor: 'pointer' }} />
+        <input type="range" min={8} max={80} value={settings.tickerSpeed} onChange={e => onChange({ tickerSpeed: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
           <span>Fast</span><span>Slow</span>
         </div>
@@ -511,7 +547,7 @@ function PropertiesPanel({ block, onChange }: { block: Block; onChange: (props: 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(['email', 'name', 'phone'] as FormField[]).map(f => (
             <label key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={block.props.fields.includes(f)} onChange={e => { const fields = e.target.checked ? [...block.props.fields, f] : block.props.fields.filter(x => x !== f); onChange({ ...block.props, fields }) }} style={{ accentColor: '#39FF14' }} />
+              <input type="checkbox" checked={block.props.fields.includes(f)} onChange={e => { const fields = e.target.checked ? [...block.props.fields, f] : block.props.fields.filter(x => x !== f); onChange({ ...block.props, fields }) }} style={{ accentColor: 'var(--accent)' }} />
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </label>
           ))}
