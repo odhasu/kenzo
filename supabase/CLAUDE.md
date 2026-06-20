@@ -24,7 +24,7 @@ This terminal: Supabase DB only. Migrations, schema, RLS policies.
 { "id": "mno", "type": "form",     "props": { "fields": ["email"] } }
 ```
 
-**IC sections (dark funnel):**
+**IC sections (theme-aware, rendered via CSS custom properties):**
 ```json
 { "id": "a", "type": "ic-hero",   "props": { "badge": "...", "headline": "...", "subtext": "...", "ctaLabel": "...", "ctaHref": "#apply" } }
 { "id": "b", "type": "ic-ticker", "props": { "items": ["item1", "item2"] } }
@@ -38,7 +38,7 @@ This terminal: Supabase DB only. Migrations, schema, RLS policies.
 All schema changes = new file in `migrations/` numbered in order.
 Format: `006_description.sql`
 Never edit old migration files.
-Next migration: **006**
+Next migration: **008**
 
 ## RLS pattern
 ```sql

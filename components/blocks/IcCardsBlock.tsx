@@ -1,10 +1,47 @@
-import type { IcCardsProps } from '@/types/blocks'
+import type { IcCardsProps, FunnelSettings } from '@/types/blocks'
 
-export function IcCardsBlock({ props }: { props: IcCardsProps }) {
+export function IcCardsBlock({ props, settings }: { props: IcCardsProps; settings?: FunnelSettings }) {
+  const gradientOn = settings?.gradientHeadlines !== false
+
+  const headlineStyle: React.CSSProperties = gradientOn
+    ? {
+        background: 'linear-gradient(to bottom, var(--text) 30%, var(--text-muted) 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+      }
+    : {
+        color: 'var(--text)',
+      }
+
+  const btnStyle: React.CSSProperties = (() => {
+    const style = settings?.buttonStyle ?? 'filled'
+    const base: React.CSSProperties = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      fontWeight: 800,
+      fontSize: `${settings?.buttonSize === 'sm' ? '14px' : settings?.buttonSize === 'md' ? '16px' : '17px'}`,
+      padding: `${settings?.buttonSize === 'sm' ? '12px 24px' : settings?.buttonSize === 'md' ? '16px 32px' : '20px 40px'}`,
+      borderRadius: `${settings?.buttonRadius ?? 12}px`,
+      textDecoration: 'none',
+      letterSpacing: '-0.3px',
+      boxShadow: (settings?.glowEnabled !== false && style === 'filled') ? '0 0 40px var(--accent-glow)' : 'none',
+    }
+    if (style === 'outline') {
+      return { ...base, background: 'transparent', border: '2px solid var(--accent)', color: 'var(--accent)' }
+    }
+    if (style === 'ghost') {
+      return { ...base, background: 'transparent', color: 'var(--accent)' }
+    }
+    return { ...base, background: 'var(--accent)', color: 'var(--bg)' }
+  })()
+
   return (
-    <section style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Inter', system-ui, sans-serif", borderTop: '1px solid var(--border)' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '80px 24px' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '48px', fontSize: 'clamp(30px, 6vw, 56px)', fontWeight: 900, letterSpacing: '-1.8px', lineHeight: 1.1, background: 'linear-gradient(to bottom, var(--text) 30%, var(--text-muted) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+    <section style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: `'${settings?.font || 'Inter'}', system-ui, sans-serif`, borderTop: '1px solid var(--border)' }}>
+      <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: 'var(--section-py) 24px' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '48px', fontSize: `calc(clamp(30px, 6vw, 56px) * var(--font-scale))`, fontWeight: 'var(--heading-weight)', letterSpacing: 'var(--letter-spacing)', lineHeight: 1.1, ...headlineStyle }}>
           {props.headline}
         </h2>
 
@@ -30,7 +67,7 @@ export function IcCardsBlock({ props }: { props: IcCardsProps }) {
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '48px' }}>
-          <a href={props.ctaHref} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--accent)', color: 'var(--bg)', fontWeight: 800, fontSize: '17px', padding: '18px 40px', borderRadius: 'var(--radius)', textDecoration: 'none', boxShadow: '0 0 40px var(--accent-glow)', letterSpacing: '-0.3px' }}>
+          <a href={props.ctaHref} style={btnStyle}>
             {props.ctaLabel}
           </a>
         </div>

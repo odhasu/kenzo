@@ -26,7 +26,14 @@ components/
 │   ├── TextBlock.tsx
 │   ├── ButtonBlock.tsx
 │   ├── ImageBlock.tsx
-│   └── FormBlock.tsx
+│   ├── FormBlock.tsx
+│   ├── IcHeroBlock.tsx       ic-hero → rendered section (reads CSS vars)
+│   ├── IcTickerBlock.tsx     ic-ticker → scrolling strip (reads CSS vars)
+│   ├── IcCardsBlock.tsx      ic-cards → 3-column card grid (reads CSS vars)
+│   ├── IcFaqBlock.tsx        ic-faq → accordion FAQ (reads CSS vars)
+│   ├── IcApplyBlock.tsx      ic-apply → wrappers ApplyForm (reads CSS vars)
+│   ├── IcCtaBlock.tsx        ic-cta → full-width CTA button (reads CSS vars)
+│   └── IcResultsBlock.tsx    ic-results → photo slider (reads CSS vars)
 │
 ├── editor/               ← Block editor (current: basic list editor)
 │   └── BlockEditor.tsx       add/edit/delete/reorder blocks, saves to Supabase
@@ -40,23 +47,37 @@ components/
 └── WaitlistForm.tsx      ← Waitlist email capture (used on landing page)
 ```
 
-## Design tokens (innercircle components)
+## Theming (CSS custom properties)
 
-```
-background:  #050505
-green:       #39FF14
-green-glow:  rgba(57,255,20,0.28)
-green-dim:   rgba(57,255,20,0.1)
-card:        rgba(15,15,15,0.8)
-border:      rgba(255,255,255,0.06)
-muted:       rgba(255,255,255,0.45)
-font:        Inter, system-ui
-```
+All section blocks read CSS vars injected at page root (editor canvas, /f/[slug], /innercircle). No hardcoded colors.
+
+| CSS var | Description |
+|---------|-------------|
+| `--accent` | Primary accent color (buttons, highlights, checkmarks) |
+| `--accent-glow` | Accent with ~0.28 alpha for box-shadows |
+| `--accent-dim` | Accent with ~0.1 alpha for subtle backgrounds |
+| `--bg` | Page background |
+| `--surface` | Elevated surface bg (badges, cards) |
+| `--text` | Primary text color |
+| `--text-muted` | Muted text (~0.45 opacity equivalent) |
+| `--text-dim` | Very dim text (~0.35 opacity equivalent) |
+| `--card` | Card background |
+| `--card-text` | Card text color |
+| `--border` | Subtle border (~0.06 opacity) |
+| `--border-strong` | Stronger border (~0.12 opacity) |
+| `--radius` | Border radius for buttons, cards, accordions |
+| `--font` | Font family |
+
+Theme presets in `lib/themes.ts`: `dark-green` (default), `dark-minimal`, `light-clean`, `light-blue`.
+`resolveTokens(settings)` merges theme preset with per-field overrides (accentColor, bgColor, textColor).
 
 ## Block types
 
-Defined in `types/blocks.ts`: `heading | text | button | image | form`
-Each has typed `props`. See `types/blocks.ts`.
+Block type system in `types/blocks.ts`:
+- **Simple elements:** `heading | text | button | image | form`
+- **IC sections:** `ic-hero | ic-ticker | ic-cards | ic-faq | ic-apply | ic-cta | ic-results`
+
+Each has typed `props`. `FunnelSettings` includes `theme`, colors, font, tickerSpeed, pageTitle, faviconUrl. See `types/blocks.ts`.
 
 ## Saves
 

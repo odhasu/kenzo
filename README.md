@@ -8,7 +8,7 @@ Kenzo is a premium, high-converting funnel builder SaaS designed specifically fo
 - **✦ Editor Chat Sidebar**: Once funnel generation finishes, users are redirected to the editor with the **AI Builder** tab pre-opened, loading their entire wizard chat history. You can converse with the assistant in real-time to adjust layout blocks, styling, colors, and copywriting.
 - **✦ Passwordless Bypass (`og@gmail.com`)**: Features a passwordless bypass login for test user `og@gmail.com`. Enter the email and leave the password blank (or enter `og`) to be signed in automatically with a valid, secure Supabase session.
 - **✦ Middleware Route Security**: Secures the `/dashboard` and `/admin` routes. Unauthenticated visitors are automatically intercepted and redirected to `/login`.
-- **✦ Premium Dark Aesthetics**: Styled with neon green accents (`#39FF14`), modern Outfit/Inter typography, and fully responsive layouts.
+- **✦ Multi-Style Theming**: 4 selectable theme presets (Dark Green, Dark Minimal, Light Clean, Light Blue). Sections use CSS custom properties — switch entire funnel style with one click. No hardcoded colors.
 
 ## Getting Started
 
@@ -37,4 +37,4 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 - **Framework**: Next.js (App Router, Turbopack)
 - **Database / Auth**: Supabase (PostgreSQL, GoTrue SSR)
 - **AI Models**: DeepSeek Chat API
-- **Styling**: TailwindCSS & Custom Vanilla CSS Variables
+- **Styling**: TailwindCSS & Theme-driven CSS Custom Properties (see `lib/themes.ts`)

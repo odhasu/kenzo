@@ -6,6 +6,12 @@ export type ThemeId = 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blu
 
 export type FormField = 'email' | 'name' | 'phone'
 
+export type LetterSpacing = 'tight' | 'normal' | 'wide'
+export type FontWeight = 'regular' | 'medium' | 'bold'
+export type SectionSpacing = 'compact' | 'normal' | 'spacious'
+export type ButtonStyle = 'filled' | 'outline' | 'ghost'
+export type ButtonSize = 'sm' | 'md' | 'lg'
+
 export interface HeadingProps { text: string }
 export interface TextProps    { text: string }
 export interface ButtonProps  { label: string; href: string }
@@ -74,9 +80,25 @@ export interface FunnelSettings {
   bgColor: string
   textColor: string
   font: string
+  headingFont: string
+  fontScale: number
+  letterSpacing: LetterSpacing
+  fontWeight: FontWeight
+  maxWidth: number
+  sectionSpacing: SectionSpacing
+  borderRadius: number
+  buttonStyle: ButtonStyle
+  buttonSize: ButtonSize
+  buttonRadius: number
+  glowEnabled: boolean
+  gradientHeadlines: boolean
+  glassmorphism: boolean
   tickerSpeed: number
   pageTitle: string
   faviconUrl: string
+  ogImage: string
+  pixelId: string
+  customCss: string
 }
 
 export const DEFAULT_SETTINGS: FunnelSettings = {
@@ -85,7 +107,23 @@ export const DEFAULT_SETTINGS: FunnelSettings = {
   bgColor: '',
   textColor: '',
   font: 'Inter',
+  headingFont: '',
+  fontScale: 1.0,
+  letterSpacing: 'tight',
+  fontWeight: 'bold',
+  maxWidth: 1100,
+  sectionSpacing: 'normal',
+  borderRadius: 12,
+  buttonStyle: 'filled',
+  buttonSize: 'lg',
+  buttonRadius: 12,
+  glowEnabled: true,
+  gradientHeadlines: true,
+  glassmorphism: false,
   tickerSpeed: 34,
   pageTitle: '',
   faviconUrl: '',
+  ogImage: '',
+  pixelId: '',
+  customCss: '',
 }

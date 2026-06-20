@@ -411,6 +411,27 @@ function CtrlBtn({ onClick, disabled, label, danger }: { onClick: () => void; di
 
 const FONTS = ['Inter', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat']
 
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      onClick={() => onChange(!value)}
+      style={{
+        width: '40px', height: '22px', borderRadius: '11px',
+        background: value ? '#39FF14' : 'rgba(255,255,255,0.1)',
+        cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: '3px',
+        left: value ? '21px' : '3px',
+        width: '16px', height: '16px', borderRadius: '50%',
+        background: value ? '#000' : 'rgba(255,255,255,0.4)',
+        transition: 'left 0.2s',
+      }} />
+    </div>
+  )
+}
+
 function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings; onChange: (patch: Partial<FunnelSettings>) => void }) {
   const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '7px 10px', fontSize: '13px', color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
   const label = (text: string) => <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '6px' }}>{text}</span>
@@ -488,11 +509,131 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
       {/* Typography */}
       {section('Typography')}
       {wrap(<>
-        {label('Font family')}
+        {label('Body font')}
         <select value={settings.font} onChange={e => onChange({ font: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>
           {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </>)}
+      {wrap(<>
+        {label('Heading font')}
+        <select value={settings.headingFont} onChange={e => onChange({ headingFont: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>
+          <option value="">Same as body</option>
+          {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </>)}
+      {wrap(<>
+        {label(`Font scale — ${settings.fontScale.toFixed(1)}x`)}
+        <input type="range" min={0.8} max={1.2} step={0.05} value={settings.fontScale} onChange={e => onChange({ fontScale: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
+          <span>0.8x</span><span>1.2x</span>
+        </div>
+      </>)}
+      {wrap(<>
+        {label('Letter spacing')}
+        <select value={settings.letterSpacing} onChange={e => onChange({ letterSpacing: e.target.value as 'tight' | 'normal' | 'wide' })} style={{ ...inp, cursor: 'pointer' }}>
+          <option value="tight">Tight (-1.8px)</option>
+          <option value="normal">Normal (0px)</option>
+          <option value="wide">Wide (1px)</option>
+        </select>
+      </>)}
+      {wrap(<>
+        {label('Heading weight')}
+        <select value={settings.fontWeight} onChange={e => onChange({ fontWeight: e.target.value as 'regular' | 'medium' | 'bold' })} style={{ ...inp, cursor: 'pointer' }}>
+          <option value="regular">Regular (700)</option>
+          <option value="medium">Medium (800)</option>
+          <option value="bold">Bold (900)</option>
+        </select>
+      </>)}
+
+      {/* Layout */}
+      {section('Layout')}
+      {wrap(<>
+        {label(`Max width — ${settings.maxWidth}px`)}
+        <input type="range" min={600} max={1400} step={50} value={settings.maxWidth} onChange={e => onChange({ maxWidth: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
+          <span>600px</span><span>1400px</span>
+        </div>
+      </>)}
+      {wrap(<>
+        {label('Section spacing')}
+        <select value={settings.sectionSpacing} onChange={e => onChange({ sectionSpacing: e.target.value as 'compact' | 'normal' | 'spacious' })} style={{ ...inp, cursor: 'pointer' }}>
+          <option value="compact">Compact (48px)</option>
+          <option value="normal">Normal (80px)</option>
+          <option value="spacious">Spacious (120px)</option>
+        </select>
+      </>)}
+      {wrap(<>
+        {label(`Border radius — ${settings.borderRadius}px`)}
+        <input type="range" min={0} max={24} value={settings.borderRadius} onChange={e => onChange({ borderRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
+          <span>0px</span><span>24px</span>
+        </div>
+      </>)}
+
+      {/* Buttons */}
+      {section('Buttons')}
+      {wrap(<>
+        {label('Button style')}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['filled', 'outline', 'ghost'] as const).map(style => (
+            <button
+              key={style}
+              onClick={() => onChange({ buttonStyle: style })}
+              style={{
+                flex: 1,
+                padding: '8px 6px',
+                borderRadius: '7px',
+                border: settings.buttonStyle === style ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+                background: settings.buttonStyle === style ? 'rgba(255,255,255,0.06)' : 'transparent',
+                color: settings.buttonStyle === style ? '#fff' : 'rgba(255,255,255,0.4)',
+                fontSize: '10px',
+                fontWeight: settings.buttonStyle === style ? 700 : 500,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                fontFamily: 'inherit',
+              }}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+      </>)}
+      {wrap(<>
+        {label('Button size')}
+        <select value={settings.buttonSize} onChange={e => onChange({ buttonSize: e.target.value as 'sm' | 'md' | 'lg' })} style={{ ...inp, cursor: 'pointer' }}>
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </>)}
+      {wrap(<>
+        {label(`Button radius — ${settings.buttonRadius}px`)}
+        <input type="range" min={0} max={50} value={settings.buttonRadius} onChange={e => onChange({ buttonRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
+          <span>0px</span><span>50px</span>
+        </div>
+      </>)}
+
+      {/* Effects */}
+      {section('Effects')}
+      {wrap(
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {label('Glow effect')}
+          <Toggle value={settings.glowEnabled} onChange={v => onChange({ glowEnabled: v })} />
+        </div>
+      )}
+      {wrap(
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {label('Gradient headlines')}
+          <Toggle value={settings.gradientHeadlines} onChange={v => onChange({ gradientHeadlines: v })} />
+        </div>
+      )}
+      {wrap(
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {label('Glassmorphism')}
+          <Toggle value={settings.glassmorphism} onChange={v => onChange({ glassmorphism: v })} />
+        </div>
+      )}
 
       {/* Ticker */}
       {section('Ticker & Scroll')}
@@ -508,6 +649,25 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
       {section('Page')}
       {wrap(<>{label('Page title')}<input type="text" value={settings.pageTitle} onChange={e => onChange({ pageTitle: e.target.value })} placeholder="My Funnel" style={inp} /></>)}
       {wrap(<>{label('Favicon URL')}<input type="text" value={settings.faviconUrl} onChange={e => onChange({ faviconUrl: e.target.value })} placeholder="https://..." style={inp} /></>)}
+      {wrap(<>{label('OG Image URL')}<input type="text" value={settings.ogImage} onChange={e => onChange({ ogImage: e.target.value })} placeholder="https://.../og.png" style={inp} /></>)}
+
+      {/* Tracking */}
+      {section('Tracking')}
+      {wrap(<>{label('Facebook Pixel ID')}<input type="text" value={settings.pixelId} onChange={e => onChange({ pixelId: e.target.value })} placeholder="1234567890" style={inp} /></>)}
+
+      {/* Advanced */}
+      {section('Advanced')}
+      {wrap(<>
+        {label('Custom CSS')}
+        <textarea
+          value={settings.customCss}
+          onChange={e => onChange({ customCss: e.target.value })}
+          rows={8}
+          placeholder="/* Add custom CSS here */"
+          style={{ ...inp, resize: 'vertical', fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: '11px', lineHeight: 1.5 }}
+        />
+        <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginTop: '6px' }}>Advanced — CSS only applies to the funnel page.</p>
+      </>)}
     </div>
   )
 }

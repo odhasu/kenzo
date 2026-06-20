@@ -1,15 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import type { IcFaqProps } from '@/types/blocks'
+import type { IcFaqProps, FunnelSettings } from '@/types/blocks'
 
-export function IcFaqBlock({ props }: { props: IcFaqProps }) {
+export function IcFaqBlock({ props, settings }: { props: IcFaqProps; settings?: FunnelSettings }) {
   const [open, setOpen] = useState<number | null>(null)
+  const gradientOn = settings?.gradientHeadlines !== false
+
+  const headlineStyle: React.CSSProperties = gradientOn
+    ? {
+        background: 'linear-gradient(to bottom, var(--text) 30%, var(--text-muted) 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+      }
+    : {
+        color: 'var(--text)',
+      }
 
   return (
-    <section style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Inter', system-ui, sans-serif", borderTop: '1px solid var(--border)' }}>
-      <div style={{ maxWidth: '780px', margin: '0 auto', padding: '80px 24px' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '40px', fontSize: 'clamp(30px, 6vw, 56px)', fontWeight: 900, letterSpacing: '-1.8px', lineHeight: 1.1, background: 'linear-gradient(to bottom, var(--text) 30%, var(--text-muted) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+    <section style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: `'${settings?.font || 'Inter'}', system-ui, sans-serif`, borderTop: '1px solid var(--border)' }}>
+      <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: 'var(--section-py) 24px' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '40px', fontSize: `calc(clamp(30px, 6vw, 56px) * var(--font-scale))`, fontWeight: 'var(--heading-weight)', letterSpacing: 'var(--letter-spacing)', lineHeight: 1.1, ...headlineStyle }}>
           {props.headline}
         </h2>
 

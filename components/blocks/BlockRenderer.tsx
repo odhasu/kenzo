@@ -26,12 +26,12 @@ export function BlockRenderer({ block, editable, onUpdate, settings }: {
     case 'button':     return <ButtonBlock     props={block.props} editable={editable} onUpdate={onUpdate} />
     case 'image':      return <ImageBlock      props={block.props} editable={editable} onUpdate={onUpdate} />
     case 'form':       return <FormBlock       props={block.props} editable={editable} onUpdate={onUpdate} />
-    case 'ic-hero':    return <IcHeroBlock     props={block.props} />
+    case 'ic-hero':    return <IcHeroBlock     props={block.props} settings={settings} />
     case 'ic-ticker':  return <IcTickerBlock   props={block.props} tickerSpeed={settings?.tickerSpeed} />
-    case 'ic-cards':   return <IcCardsBlock    props={block.props} />
-    case 'ic-faq':     return <IcFaqBlock      props={block.props} />
-    case 'ic-apply':   return <IcApplyBlock    props={block.props} />
-    case 'ic-cta':     return <IcCtaBlock      props={block.props} />
+    case 'ic-cards':   return <IcCardsBlock    props={block.props} settings={settings} />
+    case 'ic-faq':     return <IcFaqBlock      props={block.props} settings={settings} />
+    case 'ic-apply':   return <IcApplyBlock    props={block.props} settings={settings} />
+    case 'ic-cta':     return <IcCtaBlock      props={block.props} settings={settings} />
     case 'ic-results': return <IcResultsBlock  props={block.props} tickerSpeed={settings?.tickerSpeed} />
   }
 }
