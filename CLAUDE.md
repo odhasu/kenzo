@@ -41,7 +41,7 @@ npm run dev → localhost:3000
 - **Sidebar**: Section picker (ic-* types) + Element picker (basic types) + Layers list.
 - **Canvas**: Live render. Dark bg for ic-* funnels, white card for basic funnels. Click block = select. Green outline on selected/hover.
 - **Properties / Right Panel**: Per-block settings panel (auto-saves debounced 800ms) or **✦ AI Builder** chat sidebar.
-  - *Setup Wizard Link*: Creating a funnel via "Start from Scratch (AI Guided)" opens a modal wizard (height `350px`) and redirects on completion with `?tab=ai`, opening the AI sidebar tab automatically and loading the setup chat history from the DB.
+  - *Setup Wizard Link*: Creating a funnel redirects the user to `/create` hosting the conversational setup wizard (chat feed height `350px`) and redirects on completion with `?tab=ai`, opening the AI sidebar tab automatically and loading the setup chat history from the DB.
 
 ## Authentication & Security
 - **Bypass Login**: Entering `og@gmail.com` on the login page bypasses standard password constraints (you can type `og` or leave it blank). Behind the scenes, it signs in using `og_bypass_secure_password` to comply with Supabase's 6-character limit.
