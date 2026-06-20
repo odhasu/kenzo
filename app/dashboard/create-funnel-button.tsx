@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Block } from '@/types/blocks'
 
 // Default template for the "Start from Base" option
@@ -94,6 +94,14 @@ export function CreateFunnelButton() {
   const [loadingText, setLoadingText] = useState('Initializing brand setup...')
   const router = useRouter()
 
+  type WizardMessage = {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+  }
+  const [messages, setMessages] = useState<WizardMessage[]>([])
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (mode === 'loading') {
       const texts = [
@@ -114,12 +122,19 @@ export function CreateFunnelButton() {
     }
   }, [mode])
 
+
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
   function handleClose() {
     setIsOpen(false)
     setMode('choice')
     setCurrentStep(0)
     setAnswers({})
     setCustomInput('')
+    setMessages([])
   }
 
   // Create Funnel using Base Template
@@ -162,35 +177,63 @@ export function CreateFunnelButton() {
   // Wizard Navigation
   const activeStep = WIZARD_STEPS[currentStep]
 
-  function handleNext(val: string) {
-    const updated = { ...answers, [activeStep.key]: val }
-    setAnswers(updated)
+  async function handleSendAnswer(answerText: string) {
+    if (!answerText.trim()) return
+
+    const nextAnswers = { ...answers, [activeStep.key]: answerText }
+    setAnswers(nextAnswers)
     setCustomInput('')
 
-    if (currentStep < WIZARD_STEPS.length - 1) {
-      setCurrentStep(currentStep + 1)
-    } else {
-      handleCreateScratch(updated)
+    // Append user's answer to messages
+    const userMsg: WizardMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: answerText,
     }
-  }
 
-  function handleBack() {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-      setCustomInput(answers[WIZARD_STEPS[currentStep - 1].key] || '')
+    if (currentStep < WIZARD_STEPS.length - 1) {
+      const nextStepIdx = currentStep + 1
+      const nextStep = WIZARD_STEPS[nextStepIdx]
+      const assistantMsg: WizardMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: nextStep.question,
+      }
+      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      setCurrentStep(nextStepIdx)
     } else {
-      setMode('choice')
+      // Last step answered
+      const finalMsg: WizardMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '✨ Excellent! I have all your business details. Preparing design plans and initiating DeepSeek page builder...',
+      }
+      const updatedMessages = [...messages, userMsg, finalMsg]
+      setMessages(updatedMessages)
+      
+      // Wait a moment for visual feedback, then call generation
+      setTimeout(() => {
+        handleCreateScratch(nextAnswers, updatedMessages)
+      }, 1000)
     }
   }
 
   // Create Custom AI Funnel
-  async function handleCreateScratch(finalAnswers: Record<string, string>) {
+  async function handleCreateScratch(finalAnswers: Record<string, string>, chatHistoryList: WizardMessage[]) {
     setMode('loading')
     try {
+      const formattedHistory = chatHistoryList.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+
       const response = await fetch('/api/ai/create-funnel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: finalAnswers }),
+        body: JSON.stringify({ 
+          answers: finalAnswers,
+          chatHistory: formattedHistory
+        }),
       })
 
       const data = await response.json()
@@ -265,7 +308,19 @@ export function CreateFunnelButton() {
                   </button>
 
                   <button
-                    onClick={() => setMode('wizard')}
+                    onClick={() => {
+                      setMessages([
+                        {
+                          id: 'welcome',
+                          role: 'assistant',
+                          content: '👋 Welcome to the AI Funnel Architect! Let\'s build your customized conversion page together. To get started, what is the name of your funnel?',
+                        }
+                      ])
+                      setCurrentStep(0)
+                      setAnswers({})
+                      setCustomInput('')
+                      setMode('wizard')
+                    }}
                     style={{
                       textAlign: 'left',
                       background: 'rgba(57,255,20,0.02)',
@@ -293,129 +348,118 @@ export function CreateFunnelButton() {
               </div>
             )}
 
-            {/* WIZARD MODE */}
+            {/* WIZARD MODE (CHAT INTERFACE) */}
             {mode === 'wizard' && (
-              <div>
-                {/* Progress bar */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#39FF14', letterSpacing: '0.8px' }}>
-                    Setup Wizard
-                  </span>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '480px' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '14px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#39FF14' }}>AI Funnel Architect</span>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#39FF14', display: 'inline-block', animation: 'pulse 1.2s infinite ease-in-out' }} />
+                  </div>
                   <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
-                    Step {currentStep + 1} of {WIZARD_STEPS.length}
+                    Question {currentStep + 1} of {WIZARD_STEPS.length}
                   </span>
                 </div>
-                <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', marginBottom: '24px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: '#39FF14', width: `${((currentStep + 1) / WIZARD_STEPS.length) * 100}%`, transition: 'width 0.2s' }} />
+
+                {/* Messages feed */}
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      style={{
+                        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                        maxWidth: '85%',
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        lineHeight: '1.45',
+                        background: msg.role === 'user' ? 'rgba(255,255,255,0.07)' : 'rgba(57,255,20,0.03)',
+                        border: msg.role === 'user' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(57,255,20,0.1)',
+                        color: '#fff',
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
                 </div>
 
-                <h3 style={{ fontSize: '18px', fontWeight: 700, lineHeight: '1.35', marginBottom: '20px', letterSpacing: '-0.3px' }}>
-                  {activeStep.question}
-                </h3>
-
-                {/* TEXT INPUT TYPE */}
-                {activeStep.type === 'text' && (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      if (customInput.trim()) handleNext(customInput)
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={customInput}
-                      onChange={(e) => setCustomInput(e.target.value)}
-                      placeholder={activeStep.key === 'name' ? 'e.g. Elite Resellers' : 'Type your answer...'}
-                      autoFocus
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        padding: '12px 14px',
-                        fontSize: '14px',
-                        color: '#fff',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                        marginBottom: '24px'
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="button" onClick={handleBack} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}>Back</button>
-                      <button type="submit" disabled={!customInput.trim()} style={{ flex: 2, padding: '10px', background: !customInput.trim() ? 'rgba(255,255,255,0.04)' : '#39FF14', color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: !customInput.trim() ? 'default' : 'pointer', fontSize: '13px' }}>Next</button>
-                    </div>
-                  </form>
-                )}
-
-                {/* CHOICE TYPE */}
-                {activeStep.type === 'choice' && (
-                  <div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                      {activeStep.options?.map((opt) => (
-                        <button
-                          key={opt}
-                          onClick={() => handleNext(opt)}
-                          style={{
-                            textAlign: 'left',
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: '8px',
-                            padding: '11px 14px',
-                            fontSize: '13.5px',
-                            cursor: 'pointer',
-                            color: 'rgba(255,255,255,0.85)',
-                            transition: 'all 0.15s',
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Or Custom Text Input */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-                      <input
-                        type="text"
-                        value={customInput}
-                        onChange={(e) => setCustomInput(e.target.value)}
-                        placeholder="Other custom response..."
-                        style={{
-                          flex: 1,
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '8px',
-                          padding: '10px 12px',
-                          fontSize: '13px',
-                          color: '#fff',
-                          outline: 'none',
-                        }}
-                      />
+                {/* Quick-reply Suggestion Chips */}
+                {activeStep && activeStep.type === 'choice' && activeStep.options && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', flexShrink: 0 }}>
+                    {activeStep.options.map((opt) => (
                       <button
-                        onClick={() => { if (customInput.trim()) handleNext(customInput) }}
-                        disabled={!customInput.trim()}
+                        key={opt}
+                        onClick={() => handleSendAnswer(opt)}
                         style={{
-                          padding: '0 16px',
-                          background: !customInput.trim() ? 'rgba(255,255,255,0.04)' : '#39FF14',
-                          color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000',
-                          border: 'none',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          fontSize: '13px',
-                          cursor: !customInput.trim() ? 'default' : 'pointer'
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '100px',
+                          padding: '6px 12px',
+                          color: '#39FF14',
+                          fontSize: '11.5px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
                         }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.06)'; e.currentTarget.style.borderColor = 'rgba(57,255,20,0.2)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
                       >
-                        Add
+                        {opt}
                       </button>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button onClick={handleBack} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}>Back</button>
-                      <button onClick={handleClose} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
-                    </div>
+                    ))}
                   </div>
                 )}
+
+                {/* Input form */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (customInput.trim()) {
+                      handleSendAnswer(customInput)
+                    }
+                  }}
+                  style={{ display: 'flex', gap: '8px', flexShrink: 0 }}
+                >
+                  <input
+                    type="text"
+                    value={customInput}
+                    onChange={(e) => setCustomInput(e.target.value)}
+                    placeholder={activeStep?.key === 'name' ? 'e.g. Elite Resellers' : 'Type your answer...'}
+                    style={{
+                      flex: 1,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                      fontSize: '13px',
+                      color: '#fff',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!customInput.trim()}
+                    style={{
+                      background: !customInput.trim() ? 'rgba(255,255,255,0.03)' : '#39FF14',
+                      color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000',
+                      border: 'none',
+                      borderRadius: '8px',
+                      width: '36px',
+                      height: '36px',
+                      fontWeight: 700,
+                      cursor: !customInput.trim() ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '14px',
+                      transition: 'background 0.2s',
+                    }}
+                  >
+                    →
+                  </button>
+                </form>
               </div>
             )}
 

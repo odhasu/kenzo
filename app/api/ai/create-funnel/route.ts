@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { answers } = await request.json()
+    const { answers, chatHistory } = await request.json()
     if (!answers || !answers.name) {
       return NextResponse.json({ error: 'Missing funnel name or survey answers' }, { status: 400 })
     }
@@ -151,6 +151,22 @@ export async function POST(request: Request) {
 
     if (pageError) {
       throw new Error(`Supabase Page insert failed: ${pageError.message}`)
+    }
+
+    // Save wizard chat messages
+    if (chatHistory && chatHistory.length > 0) {
+      try {
+        const dbMessages = chatHistory.map((m: { role: string; content: string }) => ({
+          user_id: user.id,
+          funnel_id: funnel.id,
+          console_type: 'editor',
+          role: m.role,
+          content: m.content,
+        }))
+        await supabase.from('chat_messages').insert(dbMessages)
+      } catch (dbErr) {
+        console.error('Failed to save wizard chat messages to Supabase:', dbErr)
+      }
     }
 
     return NextResponse.json({ success: true, funnelId: funnel.id })
