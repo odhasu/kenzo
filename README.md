@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kenzo ⚡
+
+Kenzo is a premium, high-converting funnel builder SaaS designed specifically for agencies, coaches, and resellers selling high-ticket offers. It clones the clean aesthetics and layout conversion strategies of clyro.io.
+
+## Key Features
+
+- **✦ AI Funnel Architect**: Replaces static form wizardry with an interactive 10-step chat interview. The architect gathers business goals, price points, and aesthetics to auto-generate customized copy and layouts using DeepSeek AI.
+- **✦ Editor Chat Sidebar**: Once funnel generation finishes, users are redirected to the editor with the **AI Builder** tab pre-opened, loading their entire wizard chat history. You can converse with the assistant in real-time to adjust layout blocks, styling, colors, and copywriting.
+- **✦ Passwordless Bypass (`og@gmail.com`)**: Features a passwordless bypass login for test user `og@gmail.com`. Enter the email and leave the password blank (or enter `og`) to be signed in automatically with a valid, secure Supabase session.
+- **✦ Middleware Route Security**: Secures the `/dashboard` and `/admin` routes. Unauthenticated visitors are automatically intercepted and redirected to `/login`.
+- **✦ Premium Dark Aesthetics**: Styled with neon green accents (`#39FF14`), modern Outfit/Inter typography, and fully responsive layouts.
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment Configuration
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Create a `.env.local` file in the root directory and add the following keys:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Run the Development Server
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Install dependencies and start the Next.js local server:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+- **Framework**: Next.js (App Router, Turbopack)
+- **Database / Auth**: Supabase (PostgreSQL, GoTrue SSR)
+- **AI Models**: DeepSeek Chat API
+- **Styling**: TailwindCSS & Custom Vanilla CSS Variables
