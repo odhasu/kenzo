@@ -12,41 +12,28 @@ type Funnel = {
 
 export function FunnelCard({ funnel }: { funnel: Funnel }) {
   return (
-    <Link href={`/dashboard/funnels/${funnel.id}/edit`} style={{ textDecoration: 'none', display: 'block' }}>
-      <div
-        style={{
-          background: 'rgba(15,15,15,0.8)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: '14px',
-          padding: '20px',
-          transition: 'border-color 0.15s, transform 0.15s',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(57,255,20,0.3)'
-          ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)'
-          ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', letterSpacing: '-0.2px' }}>{funnel.name}</h3>
-          <span style={{
-            fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '100px',
-            background: funnel.status === 'published' ? 'rgba(57,255,20,0.12)' : 'rgba(255,255,255,0.06)',
-            color: funnel.status === 'published' ? '#39FF14' : 'rgba(255,255,255,0.4)',
-            border: `1px solid ${funnel.status === 'published' ? 'rgba(57,255,20,0.25)' : 'rgba(255,255,255,0.08)'}`,
-          }}>
-            {funnel.status}
-          </span>
-        </div>
-        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginBottom: '16px' }}>/f/{funnel.slug}</p>
-        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>
-          {new Date(funnel.created_at).toLocaleDateString()}
-        </p>
+    <Link
+      href={`/dashboard/funnels/${funnel.id}/edit`}
+      className="group block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow-md"
+    >
+      <div className="mb-3 flex items-start justify-between">
+        <h3 className="text-sm font-semibold text-black group-hover:text-gray-700">
+          {funnel.name}
+        </h3>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+            funnel.status === 'published'
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-gray-100 text-gray-500 border border-gray-200'
+          }`}
+        >
+          {funnel.status}
+        </span>
       </div>
+      <p className="mb-3 text-xs text-gray-400">/f/{funnel.slug}</p>
+      <p className="text-[11px] text-gray-300">
+        {new Date(funnel.created_at).toLocaleDateString()}
+      </p>
     </Link>
   )
 }

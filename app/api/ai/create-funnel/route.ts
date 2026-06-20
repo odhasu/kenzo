@@ -89,7 +89,8 @@ export async function POST(request: Request) {
     }
 
     // 4. Save Funnel to Supabase
-    const slug = answers.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const baseSlug = answers.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'funnel'
+    const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 8)}`
     
     const { data: funnel, error: funnelError } = await supabase
       .from('funnels')

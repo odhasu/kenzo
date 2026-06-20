@@ -10,35 +10,51 @@ export default async function DashboardPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
+  const gradientText =
+    'bg-gradient-to-r from-blue-600 via-purple-500 to-cyan-500 bg-clip-text text-transparent'
+
   return (
-    <div style={{ minHeight: '100vh', background: '#050505', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      {/* HEADER */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(5,5,5,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-            <Link href="/" style={{ fontSize: '16px', fontWeight: 800, color: '#fff', textDecoration: 'none', letterSpacing: '-0.3px' }}>
+    <div className="relative min-h-screen overflow-hidden bg-white">
+      {/* Aurora blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-[700px] w-[1000px] -translate-x-1/2 rounded-full bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-100 opacity-50 blur-3xl" />
+        <div className="absolute top-1/3 -right-40 h-[400px] w-[400px] rounded-full bg-gradient-to-bl from-indigo-100 to-blue-50 opacity-30 blur-3xl" />
+        <div className="absolute bottom-0 -left-40 h-[300px] w-[500px] rounded-full bg-gradient-to-tr from-purple-100 to-pink-50 opacity-25 blur-3xl" />
+      </div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="text-lg font-bold tracking-tight text-black">
               Kenzo
             </Link>
-            <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-              <Link href="/dashboard" style={{ fontSize: '13px', fontWeight: 600, color: '#39FF14', textDecoration: 'none' }}>
+            <nav className="flex gap-6">
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold text-black"
+              >
                 Funnels
               </Link>
               <Link
                 href="/dashboard/train"
-                className="nav-link"
+                className="text-sm text-gray-500 transition-colors hover:text-black"
               >
                 AI Training ✦
               </Link>
               <Link
                 href="/dashboard/developer"
-                className="nav-link"
+                className="text-sm text-gray-500 transition-colors hover:text-black"
               >
                 Dev Console 🛠️
               </Link>
             </nav>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Link href="/admin" style={{ fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.35)', textDecoration: 'none', transition: 'color 0.15s' }}>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin"
+              className="text-sm text-gray-400 transition-colors hover:text-black"
+            >
               Admin
             </Link>
             <CreateFunnelButton />
@@ -46,28 +62,33 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
-        {/* PAGE TITLE */}
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 900, letterSpacing: '-1px', lineHeight: 1.1, background: 'linear-gradient(to bottom, #ffffff 30%, rgba(255,255,255,0.52) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '6px' }}>
+      {/* Main */}
+      <main className="relative z-[1] mx-auto max-w-6xl px-6 py-12">
+        {/* Page title */}
+        <div className="mb-10">
+          <h1 className={`text-4xl font-bold tracking-tight leading-[1.1] ${gradientText}`}>
             Your Funnels
           </h1>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>
+          <p className="mt-2 text-sm text-gray-400">
             {funnels?.length ?? 0} funnel{funnels?.length !== 1 ? 's' : ''}
           </p>
         </div>
 
-        {/* EMPTY STATE */}
+        {/* Empty state */}
         {!funnels?.length ? (
-          <div style={{ marginTop: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '18px', padding: '80px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: '36px', marginBottom: '16px' }}>⚡</div>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px', letterSpacing: '-0.3px' }}>No funnels yet</h3>
-            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginBottom: '28px' }}>Create your first funnel to get started</p>
-            <CreateFunnelButton />
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/60 px-6 py-24 text-center backdrop-blur-sm">
+            <div className="text-4xl">⚡</div>
+            <h3 className="mt-4 text-lg font-semibold text-black">No funnels yet</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Create your first funnel to get started
+            </p>
+            <div className="mt-6">
+              <CreateFunnelButton />
+            </div>
           </div>
         ) : (
-          /* FUNNEL GRID */
-          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          /* Funnel grid */
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {funnels.map((funnel) => (
               <FunnelCard key={funnel.id} funnel={funnel} />
             ))}

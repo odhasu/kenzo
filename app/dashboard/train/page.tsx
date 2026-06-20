@@ -4,7 +4,6 @@ import Link from 'next/link'
 export default async function TrainPage() {
   const supabase = await createClient()
 
-  // Fetch count of published funnel pages to compile statistics
   const { count: pagesCount } = await supabase
     .from('pages')
     .select('*', { count: 'exact', head: true })
@@ -14,155 +13,130 @@ export default async function TrainPage() {
     .select('*', { count: 'exact', head: true })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#050505', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      {/* HEADER */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(5,5,5,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-            <Link href="/" style={{ fontSize: '16px', fontWeight: 800, color: '#fff', textDecoration: 'none', letterSpacing: '-0.3px' }}>
-              Kenzo
-            </Link>
-            <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-              <Link
-                href="/dashboard"
-                className="nav-link"
-              >
-                Funnels
-              </Link>
-              <Link href="/dashboard/train" style={{ fontSize: '13px', fontWeight: 600, color: '#39FF14', textDecoration: 'none' }}>
-                AI Training ✦
-              </Link>
-              <Link
-                href="/dashboard/developer"
-                className="nav-link"
-              >
-                Dev Console 🛠️
-              </Link>
+    <div className="relative min-h-screen overflow-hidden bg-white">
+      {/* Aurora blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-[700px] w-[1000px] -translate-x-1/2 rounded-full bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-100 opacity-40 blur-3xl" />
+        <div className="absolute top-1/3 -right-40 h-[400px] w-[400px] rounded-full bg-gradient-to-bl from-indigo-100 to-blue-50 opacity-25 blur-3xl" />
+      </div>
+
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="text-lg font-bold tracking-tight text-black">Kenzo</Link>
+            <nav className="flex gap-6">
+              <Link href="/dashboard" className="text-sm text-gray-500 transition-colors hover:text-black">Funnels</Link>
+              <Link href="/dashboard/train" className="text-sm font-semibold text-black">AI Training ✦</Link>
+              <Link href="/dashboard/developer" className="text-sm text-gray-500 transition-colors hover:text-black">Dev Console 🛠️</Link>
             </nav>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Link href="/admin" style={{ fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>
-              Admin
-            </Link>
-          </div>
+          <Link href="/admin" className="text-sm text-gray-400 transition-colors hover:text-black">Admin</Link>
         </div>
       </header>
 
-      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 24px' }}>
-        {/* PAGE TITLE */}
-        <div style={{ marginBottom: '40px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#39FF14', display: 'block', marginBottom: '6px' }}>
+      <main className="relative z-[1] mx-auto max-w-3xl px-6 py-12">
+        {/* Page title */}
+        <div className="mb-10">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600">
             Fine-Tuning Console
           </span>
-          <h1 style={{ fontSize: 'clamp(28px, 5vw, 42px)', fontWeight: 900, letterSpacing: '-1.2px', lineHeight: 1.1, background: 'linear-gradient(to bottom, #ffffff 40%, rgba(255,255,255,0.6) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '10px' }}>
-            Train Your DeepSeek Model
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-black leading-[1.1]">
+            Train Your AI Model
           </h1>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', maxWidth: '600px', lineHeight: 1.5 }}>
-            Export your high-converting page structures from the database into a training dataset, upload it to DeepSeek, and instruct your editor AI to run your custom-tuned model.
+          <p className="mt-3 text-sm text-gray-500 max-w-lg leading-relaxed">
+            Export your high-converting page structures from the database into a training dataset, upload it to your AI platform, and instruct your editor AI to run your custom-tuned model.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', marginBottom: '40px' }}>
-          {/* STATS CARD */}
-          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '24px' }}>
-            <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Dataset Stats</span>
-            <div style={{ display: 'flex', gap: '32px', marginTop: '16px', alignItems: 'baseline' }}>
+        <div className="mb-10 grid gap-5 sm:grid-cols-2">
+          {/* Stats card */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Dataset Stats</span>
+            <div className="mt-4 flex gap-10">
               <div>
-                <p style={{ fontSize: '42px', fontWeight: 900, color: '#39FF14', margin: 0, lineHeight: 1 }}>{pagesCount ?? 0}</p>
-                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', marginBottom: 0 }}>Available Pages</p>
+                <p className="text-4xl font-bold text-black">{pagesCount ?? 0}</p>
+                <p className="mt-1 text-xs text-gray-400">Available Pages</p>
               </div>
               <div>
-                <p style={{ fontSize: '42px', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1 }}>{funnelsCount ?? 0}</p>
-                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '6px', marginBottom: 0 }}>Funnels</p>
+                <p className="text-4xl font-bold text-black">{funnelsCount ?? 0}</p>
+                <p className="mt-1 text-xs text-gray-400">Funnels</p>
               </div>
             </div>
-            <div style={{ marginTop: '20px', fontSize: '12px', color: 'rgba(255,255,255,0.4)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '14px' }}>
-              Format: <span style={{ fontFamily: 'monospace', color: '#fff' }}>JSONL (Chat Messages)</span>
+            <div className="mt-5 border-t border-gray-100 pt-4 text-xs text-gray-400">
+              Format: <span className="font-mono text-black">JSONL (Chat Messages)</span>
             </div>
           </div>
 
-          {/* DOWNLOAD ACTION CARD */}
-          <div style={{ background: 'rgba(57,255,20,0.02)', border: '1px solid rgba(57,255,20,0.12)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          {/* Download card */}
+          <div className="flex flex-col justify-between rounded-2xl border border-blue-200 bg-blue-50/50 p-6 shadow-sm">
             <div>
-              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: '#39FF14' }}>Compile Dataset</span>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '10px', lineHeight: '1.45' }}>
-                Generates a training file mapping user inputs to your exact database layouts. Re-download this file when you create or modify funnels.
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600">Compile Dataset</span>
+              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                Generates a training file mapping user inputs to your exact database layouts. Re-download when you create or modify funnels.
               </p>
             </div>
             <a
               href="/api/ai/export-dataset"
               download
-              style={{
-                marginTop: '16px',
-                textAlign: 'center',
-                display: 'block',
-                background: '#39FF14',
-                color: '#000',
-                textDecoration: 'none',
-                padding: '12px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '13px',
-                boxShadow: '0 0 20px rgba(57,255,20,0.25)',
-                transition: 'opacity 0.2s',
-              }}
+              className="mt-4 block rounded-full bg-black px-6 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
               Download JSONL Dataset ✦
             </a>
           </div>
         </div>
 
-        {/* STEP-BY-STEP TRAINING PIPELINE */}
-        <section style={{ marginBottom: '48px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '20px', letterSpacing: '-0.4px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
+        {/* Pipeline steps */}
+        <section className="mb-12">
+          <h2 className="mb-5 border-b border-gray-100 pb-3 text-lg font-bold tracking-tight text-black">
             Pipeline Steps
           </h2>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          <div className="flex flex-col gap-5">
             {[
               {
                 step: '1',
                 title: 'Download JSONL File',
-                desc: 'Click the download button above to compile your current funnel design database into deepseek_training_data.jsonl.',
+                desc: 'Click the download button above to compile your current funnel design database into a training file.',
               },
               {
                 step: '2',
-                title: 'Upload to DeepSeek Platform',
-                desc: 'Log in to your account at platform.deepseek.com. Go to "Fine-Tuning" or "Model Training" and upload your training file.',
+                title: 'Upload to AI Platform',
+                desc: 'Log in to your AI platform account. Go to "Fine-Tuning" or "Model Training" and upload your training file.',
               },
               {
                 step: '3',
                 title: 'Start Fine-Tuning Job',
-                desc: 'Set the base model as "deepseek-chat" or "deepseek-v4-pro". Leave parameters (epochs, learning rate) as default and click "Start Training". Fine-tuning typically finishes in 15–40 minutes.',
+                desc: 'Set the base model to your preferred model. Leave parameters as default and click "Start Training". Fine-tuning typically finishes in 15–40 minutes.',
               },
               {
                 step: '4',
                 title: 'Configure Your New Model ID',
-                desc: 'Once complete, copy your custom model ID (e.g. ft:deepseek-chat:my-custom-funnel). Set it as an environment variable (DEEPSEEK_API_MODEL) in your Vercel Dashboard, and redeploy. The editor AI will immediately use your custom model!',
+                desc: 'Once complete, copy your custom model ID. Set it as an environment variable in your Vercel Dashboard, and redeploy. The editor AI will immediately use your custom model.',
               },
             ].map((s) => (
-              <div key={s.step} style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, flexShrink: 0, color: '#39FF14' }}>
+              <div key={s.step} className="flex gap-4">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-xs font-bold text-black shadow-sm">
                   {s.step}
                 </div>
                 <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0', color: '#fff' }}>{s.title}</h4>
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.45 }}>{s.desc}</p>
+                  <h4 className="text-sm font-semibold text-black">{s.title}</h4>
+                  <p className="mt-1 text-sm text-gray-500 leading-relaxed">{s.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* FEW-SHOT SYSTEM RULES */}
-        <section style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '16px', padding: '24px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.3px' }}>
-            In-Context Model Training Prompt
+        {/* Block schema reference */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-bold tracking-tight text-black">
+            Block Schema Reference
           </h2>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px', lineHeight: '1.4' }}>
-            The AI editor runs under these system instructions. When you train your custom model, it will already be familiar with this template layout:
+          <p className="mt-1 text-xs text-gray-400 leading-relaxed">
+            The AI editor runs under these system instructions. When you train your custom model, it will already be familiar with this template layout.
           </p>
-          <pre style={{ background: '#000', border: '1px solid rgba(255,255,255,0.08)', padding: '16px', borderRadius: '8px', maxHeight: '250px', overflowY: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace', lineHeight: '1.5' }}>
+          <pre className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4 text-[11px] text-gray-600 font-mono leading-relaxed">
 {`Block Schema:
 - heading { text }
 - text { text }
@@ -178,7 +152,11 @@ export default async function TrainPage() {
 - ic-results { headline, photos }
 
 Settings:
-- accentColor, bgColor, textColor, font, tickerSpeed, pageTitle, faviconUrl`}
+- theme, accentColor, bgColor, textColor, font, headingFont
+- fontScale, letterSpacing, fontWeight, maxWidth, sectionSpacing
+- borderRadius, buttonStyle, buttonSize, buttonRadius
+- glowEnabled, gradientHeadlines, glassmorphism
+- tickerSpeed, pageTitle, faviconUrl, ogImage, pixelId, customCss`}
           </pre>
         </section>
       </main>

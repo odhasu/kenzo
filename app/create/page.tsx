@@ -140,7 +140,8 @@ export default function CreatePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'funnel'
+      const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 8)}`
       const { data: funnel, error } = await supabase
         .from('funnels')
         .insert({ name, slug, user_id: user.id })
@@ -202,7 +203,7 @@ export default function CreatePage() {
       }
       const updatedMessages = [...messages, userMsg, finalMsg]
       setMessages(updatedMessages)
-      
+
       // Wait a moment for visual feedback, then call generation
       setTimeout(() => {
         handleCreateScratch(nextAnswers, updatedMessages)
@@ -222,7 +223,7 @@ export default function CreatePage() {
       const response = await fetch('/api/ai/create-funnel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           answers: finalAnswers,
           chatHistory: formattedHistory
         }),
@@ -246,40 +247,39 @@ export default function CreatePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", padding: '40px 16px', overflowY: 'auto', boxSizing: 'border-box' }}>
-      
-      <Link href="/dashboard" style={{ position: 'absolute', top: '24px', left: '24px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}>
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-4 py-10">
+      {/* Aurora blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-100 opacity-40 blur-3xl" />
+        <div className="absolute -bottom-40 right-0 h-[300px] w-[400px] rounded-full bg-gradient-to-bl from-indigo-100 to-blue-50 opacity-30 blur-3xl" />
+      </div>
+
+      <Link
+        href="/dashboard"
+        className="absolute top-6 left-6 z-[2] flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-black"
+      >
         ← Dashboard
       </Link>
 
-      <div style={{ width: '100%', maxWidth: '520px', background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px', color: '#fff', boxShadow: '0 10px 40px rgba(0,0,0,0.5)', marginTop: 'auto', marginBottom: 'auto', boxSizing: 'border-box' }}>
-        
+      <div className="relative z-[1] w-full max-w-lg rounded-2xl border border-gray-200 bg-white/70 p-7 shadow-2xl shadow-gray-100 backdrop-blur-sm">
+
         {/* CHOICE MODE */}
         {mode === 'choice' && (
           <div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', marginBottom: '6px' }}>Create New Funnel</h3>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '24px' }}>Choose how you want to build this funnel.</p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h3 className="text-xl font-bold tracking-tight text-black">Create New Funnel</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Choose how you want to build this funnel.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
               <button
                 onClick={handleCreateBase}
-                style={{
-                  textAlign: 'left',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '12px',
-                  padding: '16px 20px',
-                  cursor: 'pointer',
-                  color: '#fff',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+                className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:border-gray-300 hover:shadow-md"
               >
-                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>Start from Base Blueprint</strong>
-                <span style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>Get started instantly using our pre-designed, high-converting Inner Circle template.</span>
+                <strong className="block text-sm text-black">Start from Base Blueprint</strong>
+                <span className="mt-1 block text-xs text-gray-400">
+                  Get started instantly using our pre-designed, high-converting template.
+                </span>
               </button>
 
               <button
@@ -288,7 +288,7 @@ export default function CreatePage() {
                     {
                       id: 'welcome',
                       role: 'assistant',
-                      content: '👋 Welcome to the AI Funnel Architect! Let\'s build your customized conversion page together. To get started, what is the name of your funnel?',
+                      content: "👋 Welcome to the AI Funnel Architect! Let's build your customized conversion page together. To get started, what is the name of your funnel?",
                     }
                   ])
                   setCurrentStep(0)
@@ -296,27 +296,18 @@ export default function CreatePage() {
                   setCustomInput('')
                   setMode('wizard')
                 }}
-                style={{
-                  textAlign: 'left',
-                  background: 'rgba(57,255,20,0.02)',
-                  border: '1px solid rgba(57,255,20,0.15)',
-                  borderRadius: '12px',
-                  padding: '16px 20px',
-                  cursor: 'pointer',
-                  color: '#fff',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.05)'; e.currentTarget.style.borderColor = '#39FF14' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.02)'; e.currentTarget.style.borderColor = 'rgba(57,255,20,0.15)' }}
+                className="rounded-xl border border-blue-200 bg-blue-50/50 p-5 text-left shadow-sm transition hover:border-blue-300 hover:shadow-md"
               >
-                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px', color: '#39FF14' }}>Start from Scratch (AI Guided) ✦</strong>
-                <span style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>Answer 10 quick business questions and let DeepSeek generate a custom copy and layout tailored for you.</span>
+                <strong className="block text-sm text-blue-700">Start from Scratch (AI Guided) ✦</strong>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Answer 10 quick business questions and let AI generate a custom copy and layout tailored for you.
+                </span>
               </button>
             </div>
 
             <Link
               href="/dashboard"
-              style={{ display: 'block', textDecoration: 'none', textAlign: 'center', marginTop: '24px', width: '100%', padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(255,255,255,0.4)', fontSize: '13px', cursor: 'pointer', boxSizing: 'border-box' }}
+              className="mt-5 block rounded-xl border border-gray-200 py-2.5 text-center text-sm text-gray-400 transition hover:text-black"
             >
               Cancel
             </Link>
@@ -325,34 +316,28 @@ export default function CreatePage() {
 
         {/* WIZARD MODE (CHAT INTERFACE) */}
         {mode === 'wizard' && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '350px' }}>
+          <div className="flex flex-col" style={{ height: '350px' }}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px', marginBottom: '14px', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 800, color: '#39FF14' }}>AI Funnel Architect</span>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#39FF14', display: 'inline-block', animation: 'pulse 1.2s infinite ease-in-out' }} />
+            <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-black">AI Funnel Architect</span>
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
               </div>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+              <span className="text-[11px] text-gray-400">
                 Question {currentStep + 1} of {WIZARD_STEPS.length}
               </span>
             </div>
 
             {/* Messages feed */}
-            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+            <div className="mb-3 flex-1 space-y-3 overflow-y-auto pr-1">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  style={{
-                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    lineHeight: '1.45',
-                    background: msg.role === 'user' ? 'rgba(255,255,255,0.07)' : 'rgba(57,255,20,0.03)',
-                    border: msg.role === 'user' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(57,255,20,0.1)',
-                    color: '#fff',
-                  }}
+                  className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'ml-auto bg-gray-100 text-gray-800'
+                      : 'mr-auto border border-blue-100 bg-blue-50/60 text-gray-700'
+                  }`}
                 >
                   {msg.content}
                 </div>
@@ -362,23 +347,12 @@ export default function CreatePage() {
 
             {/* Quick-reply Suggestion Chips */}
             {activeStep && activeStep.type === 'choice' && activeStep.options && (
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', flexShrink: 0 }}>
+              <div className="mb-3 flex flex-wrap gap-2">
                 {activeStep.options.map((opt) => (
                   <button
                     key={opt}
                     onClick={() => handleSendAnswer(opt)}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '100px',
-                      padding: '6px 12px',
-                      color: '#39FF14',
-                      fontSize: '11.5px',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.06)'; e.currentTarget.style.borderColor = 'rgba(57,255,20,0.2)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+                    className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 shadow-sm transition hover:border-black hover:text-black"
                   >
                     {opt}
                   </button>
@@ -394,43 +368,19 @@ export default function CreatePage() {
                   handleSendAnswer(customInput)
                 }
               }}
-              style={{ display: 'flex', gap: '8px', flexShrink: 0 }}
+              className="flex gap-2"
             >
               <input
                 type="text"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 placeholder={activeStep?.key === 'name' ? 'e.g. Elite Resellers' : 'Type your answer...'}
-                style={{
-                  flex: 1,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  fontSize: '13px',
-                  color: '#fff',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-black placeholder-gray-400 shadow-sm focus:border-black focus:outline-none transition"
               />
               <button
                 type="submit"
                 disabled={!customInput.trim()}
-                style={{
-                  background: !customInput.trim() ? 'rgba(255,255,255,0.03)' : '#39FF14',
-                  color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000',
-                  border: 'none',
-                  borderRadius: '8px',
-                  width: '36px',
-                  height: '36px',
-                  fontWeight: 700,
-                  cursor: !customInput.trim() ? 'default' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                  transition: 'background 0.2s',
-                }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-sm font-bold text-white transition hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400"
               >
                 →
               </button>
@@ -440,21 +390,12 @@ export default function CreatePage() {
 
         {/* LOADING/GENERATING MODE */}
         {mode === 'loading' && (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ width: '40px', height: '40px', border: '3px solid rgba(57,255,20,0.15)', borderTopColor: '#39FF14', borderRadius: '50%', animation: 'spin 1.2s infinite linear', margin: '0 auto 24px auto' }} />
-            <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Generating Your Funnel</h4>
-            <p style={{ fontSize: '13px', color: '#39FF14', fontWeight: 600, animation: 'pulse 1.5s infinite ease-in-out' }}>
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-6 h-10 w-10 animate-spin rounded-full border-[3px] border-gray-200 border-t-black" />
+            <h4 className="text-base font-bold text-black">Generating Your Funnel</h4>
+            <p className="mt-2 text-sm font-medium text-blue-600 animate-pulse">
               {loadingText}
             </p>
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-              @keyframes pulse {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 1; }
-              }
-            `}</style>
           </div>
         )}
       </div>
