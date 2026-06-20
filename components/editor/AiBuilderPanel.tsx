@@ -18,11 +18,11 @@ type Message = {
 }
 
 const SUGGESTIONS = [
-  { label: 'Set Dark theme 🌙', prompt: 'Change background to dark charcoal (#0a0a0a), text to white, and accent to neon green (#39FF14)' },
-  { label: 'Set Light theme ☀️', prompt: 'Change background to clean white (#ffffff), text to dark gray (#171717), and accent to royal blue (#2563eb)' },
-  { label: 'Add Hero section ⚡', prompt: 'Add an ic-hero block at the very top of the page with conversion-optimized high-ticket copy' },
-  { label: 'Add FAQ section ❓', prompt: 'Add an ic-faq block at the end with questions about refund policies, community size, and vendor quality' },
-  { label: 'Accent to Hot Pink 💖', prompt: 'Change the site accent color to hot pink (#ff007f)' },
+  { label: 'Dark theme + neon green', prompt: 'Set dark-green theme with neon green accent. Add a high-converting hero and ticker for a high-ticket reselling offer.' },
+  { label: 'Light theme + royal blue', prompt: 'Switch to light-blue theme. Make it clean and corporate for an agency offer.' },
+  { label: 'Add FAQ section', prompt: 'Add an ic-faq block addressing refund policy, starting capital, and vendor quality questions.' },
+  { label: 'Add results proof', prompt: 'Add an ic-results block. Reference student screenshots and revenue wins.' },
+  { label: 'Rewrite all copy human', prompt: 'Scan every headline and subtext on this page. Rewrite anything that sounds AI-generated — no filler, no hype, just direct human copy from someone who knows high-ticket.' },
 ]
 
 export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiBuilderPanelProps) {
@@ -30,7 +30,7 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
     {
       id: 'welcome',
       role: 'assistant',
-      content: '✦ Hello! I am your Kenzo AI design assistant. Tell me what you want to build or change, and I will modify the layout, blocks, and settings for you in real-time.',
+      content: 'I write high-ticket funnel copy — not AI filler. Tell me about your offer, your audience, and what you want the page to do. I\'ll build the blocks and write copy that sounds like a person who\'s actually sold this stuff.',
     },
   ])
   const [prompt, setPrompt] = useState('')
@@ -67,7 +67,7 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
             {
               id: 'welcome',
               role: 'assistant',
-              content: '✦ Hello! I am your Kenzo AI design assistant. Tell me what you want to build or change, and I will modify the layout, blocks, and settings for you in real-time.',
+              content: 'I write high-ticket funnel copy — not AI filler. Tell me about your offer, your audience, and what you want the page to do. I\'ll build the blocks and write copy that sounds like a person who\'s actually sold this stuff.',
             },
             ...mapped
           ])
@@ -325,7 +325,7 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
                 animation: 'pulse 1.2s infinite ease-in-out'
               }}
             />
-            AI is rebuilding page...
+            Writing copy, rebuilding page...
             <style>{`
               @keyframes pulse {
                 0%, 100% { opacity: 0.3; transform: scale(0.8); }

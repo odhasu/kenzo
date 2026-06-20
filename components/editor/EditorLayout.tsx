@@ -270,7 +270,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
         </main>
 
         {/* ── PROPERTIES PANEL ────────────────────────────────────── */}
-        <aside style={{ width: '260px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.07)', background: '#111', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <aside style={{ width: rightPanelTab === 'ai' ? '420px' : '260px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.07)', background: '#111', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'width 0.25s ease' }}>
           {/* Tabs header */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
             <button
