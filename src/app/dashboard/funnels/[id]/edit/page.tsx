@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { BlockEditor } from '@/components/editor/BlockEditor'
+import { PublishButton } from './publish-button'
+import type { Block } from '@/types/blocks'
 
 export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,7 +19,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
 
   if (error || !funnel) redirect('/dashboard')
 
-  const page = funnel.pages?.[0]
+  const page = funnel.pages?.sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0]
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -35,17 +38,24 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
               {funnel.status}
             </span>
           </div>
+          <div className="flex items-center gap-3">
+            {funnel.status === 'published' && (
+              <a
+                href={`/f/${funnel.slug}`}
+                target="_blank"
+                className="text-sm text-blue-400 hover:text-blue-300"
+              >
+                View live →
+              </a>
+            )}
+            <PublishButton funnelId={funnel.id} currentStatus={funnel.status} />
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-8">
         {page ? (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-            <p className="text-sm text-zinc-500">
-              Page: {page.title} — {Array.isArray(page.content) ? page.content.length : 0} blocks
-            </p>
-            <p className="mt-4 text-zinc-400">Block editor coming next session.</p>
-          </div>
+          <BlockEditor pageId={page.id} initialBlocks={(page.content || []) as Block[]} />
         ) : (
           <p className="text-zinc-500">No pages found for this funnel.</p>
         )}
