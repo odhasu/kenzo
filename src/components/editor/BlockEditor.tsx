@@ -64,66 +64,41 @@ export function BlockEditor({ pageId, initialBlocks }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-zinc-500">
-          {blocks.length} block{blocks.length !== 1 ? 's' : ''}
-          {saving && ' · Saving...'}
-        </p>
-      </div>
+      <p className="text-xs text-gray-400">
+        {blocks.length} block{blocks.length !== 1 ? 's' : ''}
+        {saving && ' · Saving...'}
+      </p>
 
       {blocks.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-zinc-800 p-8 text-center text-zinc-500">
+        <div className="rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center text-gray-400">
           No blocks yet. Add one below.
         </div>
       )}
 
       {blocks.map((block, i) => (
-        <div key={block.id} className="group relative rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-          <div className="absolute -top-3 right-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
-            <button
-              onClick={() => moveBlock(i, -1)}
-              disabled={i === 0}
-              className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-700 disabled:opacity-30"
-            >
-              ↑
-            </button>
-            <button
-              onClick={() => moveBlock(i, 1)}
-              disabled={i === blocks.length - 1}
-              className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-700 disabled:opacity-30"
-            >
-              ↓
-            </button>
-            <button
-              onClick={() => deleteBlock(i)}
-              className="rounded bg-red-900/50 px-2 py-1 text-xs text-red-400 hover:bg-red-900"
-            >
-              ✕
-            </button>
+        <div key={block.id} className="group relative rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="absolute -top-3 right-3 flex gap-1 opacity-0 transition group-hover:opacity-100">
+            <button onClick={() => moveBlock(i, -1)} disabled={i === 0}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 shadow-sm hover:bg-gray-50 disabled:opacity-30">↑</button>
+            <button onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 shadow-sm hover:bg-gray-50 disabled:opacity-30">↓</button>
+            <button onClick={() => deleteBlock(i)}
+              className="rounded-lg border border-red-100 bg-white px-2 py-1 text-xs text-red-500 shadow-sm hover:bg-red-50">✕</button>
           </div>
-          <BlockRenderer
-            block={block}
-            editable
-            onUpdate={(props) => updateBlock(i, props)}
-          />
+          <BlockRenderer block={block} editable onUpdate={(props) => updateBlock(i, props)} />
         </div>
       ))}
 
       <div className="relative">
-        <button
-          onClick={() => setShowMenu(!showMenu)}
-          className="w-full rounded-lg border-2 border-dashed border-zinc-800 py-3 text-sm text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-400"
-        >
+        <button onClick={() => setShowMenu(!showMenu)}
+          className="w-full rounded-2xl border-2 border-dashed border-gray-200 py-4 text-sm text-gray-400 transition hover:border-gray-300 hover:text-gray-600">
           + Add block
         </button>
         {showMenu && (
-          <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-zinc-700 bg-zinc-800 p-2 shadow-xl">
+          <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg">
             {(['heading', 'text', 'button', 'image', 'form'] as BlockType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => addBlock(type)}
-                className="block w-full rounded px-3 py-2 text-left text-sm capitalize text-white hover:bg-zinc-700"
-              >
+              <button key={type} onClick={() => addBlock(type)}
+                className="block w-full rounded-xl px-4 py-2.5 text-left text-sm capitalize text-black hover:bg-gray-50">
                 {type}
               </button>
             ))}

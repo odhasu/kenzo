@@ -22,7 +22,7 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
   const blocks = (page?.content || []) as Block[]
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl space-y-6 bg-zinc-950 px-6 py-16">
+    <main className="mx-auto min-h-screen max-w-2xl space-y-8 bg-white px-6 py-16">
       {blocks.map((block) => (
         <BlockRenderer key={block.id} block={block} />
       ))}

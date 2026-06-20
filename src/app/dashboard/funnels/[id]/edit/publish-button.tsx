@@ -25,10 +25,10 @@ export function PublishButton({ funnelId, currentStatus }: {
     <button
       onClick={handlePublish}
       disabled={loading}
-      className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
+      className={`rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
         currentStatus === 'published'
-          ? 'bg-zinc-700 hover:bg-zinc-600'
-          : 'bg-green-600 hover:bg-green-500'
+          ? 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+          : 'bg-black text-white hover:bg-gray-800'
       }`}
     >
       {loading

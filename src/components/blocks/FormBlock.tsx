@@ -19,8 +19,8 @@ export function FormBlock({ props, editable, onUpdate }: {
   if (editable && editing) {
     const allFields: FormField[] = ['email', 'name', 'phone']
     return (
-      <div className="space-y-2 rounded-lg border border-zinc-700 bg-zinc-800 p-3">
-        <p className="text-xs font-medium text-zinc-400">Form fields:</p>
+      <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+        <p className="text-xs font-medium text-gray-500">Form fields:</p>
         {allFields.map((field) => (
           <label key={field} className="flex items-center gap-2 text-sm text-white">
             <input
@@ -50,7 +50,7 @@ export function FormBlock({ props, editable, onUpdate }: {
   return (
     <div
       onClick={() => editable && setEditing(true)}
-      className={`space-y-3 rounded-lg border border-zinc-700 bg-zinc-900 p-4 ${editable ? 'cursor-pointer hover:border-zinc-600' : ''}`}
+      className={`space-y-3 rounded-xl border border-gray-200 bg-white p-4 ${editable ? 'cursor-pointer hover:border-zinc-600' : ''}`}
     >
       {props.fields.map((field) => (
         <input
@@ -58,7 +58,7 @@ export function FormBlock({ props, editable, onUpdate }: {
           type={field === 'email' ? 'email' : field === 'phone' ? 'tel' : 'text'}
           placeholder={fieldLabels[field]}
           disabled={editable}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-white placeholder-zinc-500 disabled:opacity-60"
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-black placeholder-gray-400 disabled:opacity-60"
         />
       ))}
       <button

@@ -14,18 +14,18 @@ export function ButtonBlock({ props, editable, onUpdate }: {
 
   if (editable && editing) {
     return (
-      <div className="space-y-2 rounded-lg border border-zinc-700 bg-zinc-800 p-3">
+      <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Button label"
-          className="w-full rounded bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 border border-zinc-700"
+          className="w-full rounded-lg bg-white px-3 py-2 text-sm text-black placeholder-gray-400 border border-gray-200"
         />
         <input
           value={href}
           onChange={(e) => setHref(e.target.value)}
           placeholder="Link URL"
-          className="w-full rounded bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 border border-zinc-700"
+          className="w-full rounded-lg bg-white px-3 py-2 text-sm text-black placeholder-gray-400 border border-gray-200"
         />
         <button
           onClick={() => { onUpdate?.({ label, href }); setEditing(false) }}

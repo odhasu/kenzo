@@ -11,11 +11,11 @@ export function TextBlock({ props, editable, onUpdate }: {
         contentEditable
         suppressContentEditableWarning
         onBlur={(e) => onUpdate?.({ text: e.currentTarget.textContent || '' })}
-        className="text-base leading-7 text-zinc-300 outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded px-1"
+        className="text-base leading-7 text-gray-600 outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white rounded px-1"
       >
         {props.text}
       </p>
     )
   }
-  return <p className="text-base leading-7 text-zinc-300">{props.text}</p>
+  return <p className="text-base leading-7 text-gray-600">{props.text}</p>
 }
