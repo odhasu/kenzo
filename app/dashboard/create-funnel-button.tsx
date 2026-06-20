@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Block } from '@/types/blocks'
 
+// Default template for the "Start from Base" option
 function makeTemplate(): Block[] {
   return [
     {
@@ -51,7 +52,7 @@ function makeTemplate(): Block[] {
         headline: 'Frequently Asked Questions',
         items: [
           { q: 'Are these vendors legit?', a: 'Yes. These are the same OEM vendors our Inner Circle members use to pass StockX and GOAT authentication every single time. 100% authentic products.' },
-          { q: 'How fast can I start making money?', a: 'You can place your first order and list products the same day you get access. Many members make their first sale within the first week.' },
+          { q: 'How fast can I start making money?', a: 'Yes. You can place your first order and list products the same day you get access. Many members make their first sale within the first week.' },
           { q: 'Do I need experience to start?', a: 'No experience needed. Our vendors and resources are beginner-friendly. Everything is explained step-by-step inside the community.' },
         ],
       },
@@ -64,44 +65,382 @@ function makeTemplate(): Block[] {
   ]
 }
 
+type WizardStep = {
+  key: string
+  question: string
+  type: 'text' | 'choice'
+  options?: string[]
+}
+
+const WIZARD_STEPS: WizardStep[] = [
+  { key: 'name', question: 'What is the name of your funnel?', type: 'text' },
+  { key: 'niche', question: 'What is your business niche?', type: 'choice', options: ['High-Ticket Reselling', 'Trading / Mentorship', 'Fitness Coaching', 'Agency / Service', 'E-commerce / Retail'] },
+  { key: 'audience', question: 'Who is your target customer?', type: 'choice', options: ['Beginners / Starters', 'Experienced Resellers', 'High-Ticket Agencies', 'Coaches / Consultants'] },
+  { key: 'price', question: 'What is the price of your offer?', type: 'choice', options: ['Free / Lead Magnet', '$100 - $500', '$1,000', '$5,000+'] },
+  { key: 'tone', question: 'What tone of voice should we use?', type: 'choice', options: ['Highly Professional Business Expert', 'Energetic & Direct', 'Warm & Encouraging', 'Minimalist & Clear'] },
+  { key: 'goal', question: 'What is the primary action visitors should take?', type: 'choice', options: ['Apply via form', 'Book a call', 'Waitlist Email capture', 'Direct Purchase'] },
+  { key: 'socialProof', question: 'What social proof do you want to show?', type: 'choice', options: ['Student winning screenshots', 'Revenue stats', 'Before / After results', 'Text reviews'] },
+  { key: 'aesthetics', question: 'What design style do you want?', type: 'choice', options: ['Premium Dark (Neon green)', 'Clean Light (Royal blue)', 'Luxury Gold', 'Monochrome Gray'] },
+  { key: 'benefits', question: 'List up to 3 core benefits of your offer (comma separated):', type: 'text' },
+  { key: 'requisites', question: 'Is there any experience required?', type: 'choice', options: ['Zero experience required', 'Basic knowledge needed', 'Application only / Select members'] },
+]
+
 export function CreateFunnelButton() {
-  const [creating, setCreating] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+  const [mode, setMode] = useState<'choice' | 'wizard' | 'loading'>('choice')
+  const [currentStep, setCurrentStep] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [customInput, setCustomInput] = useState('')
+  const [loadingText, setLoadingText] = useState('Initializing brand setup...')
   const router = useRouter()
 
-  async function handleCreate() {
+  useEffect(() => {
+    if (mode === 'loading') {
+      const texts = [
+        'Analyzing niche and audience profile...',
+        'Structuring conversion-optimized blocks...',
+        'Drafting professional business copywriting...',
+        'Inlining high-class indicators and assets...',
+        'Finalizing Supabase database tables...',
+      ]
+      let idx = 0
+      const interval = setInterval(() => {
+        if (idx < texts.length) {
+          setLoadingText(texts[idx])
+          idx++
+        }
+      }, 1500)
+      return () => clearInterval(interval)
+    }
+  }, [mode])
+
+  function handleClose() {
+    setIsOpen(false)
+    setMode('choice')
+    setCurrentStep(0)
+    setAnswers({})
+    setCustomInput('')
+  }
+
+  // Create Funnel using Base Template
+  async function handleCreateBase() {
     const name = prompt('Funnel name:')
     if (!name) return
 
-    setCreating(true)
-    const supabase = createClient()
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    setMode('loading')
+    setLoadingText('Assembling Base Inner Circle Funnel...')
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
-    const { data: funnel, error } = await supabase
-      .from('funnels')
-      .insert({ name, slug, user_id: 'aaaaaaaa-0000-0000-0000-000000000001' })
-      .select()
-      .single()
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      const { data: funnel, error } = await supabase
+        .from('funnels')
+        .insert({ name, slug, user_id: user.id })
+        .select()
+        .single()
 
-    if (error) { alert(error.message); setCreating(false); return }
+      if (error) throw error
 
-    await supabase.from('pages').insert({
-      funnel_id: funnel.id,
-      slug: 'main',
-      title: 'Main Page',
-      content: makeTemplate(),
-      order: 0,
-    })
+      await supabase.from('pages').insert({
+        funnel_id: funnel.id,
+        slug: 'main',
+        title: 'Main Page',
+        content: makeTemplate(),
+        order: 0,
+      })
 
-    router.push(`/dashboard/funnels/${funnel.id}/edit`)
+      router.push(`/dashboard/funnels/${funnel.id}/edit`)
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'An unknown error occurred'
+      alert(errMsg)
+      handleClose()
+    }
+  }
+
+  // Wizard Navigation
+  const activeStep = WIZARD_STEPS[currentStep]
+
+  function handleNext(val: string) {
+    const updated = { ...answers, [activeStep.key]: val }
+    setAnswers(updated)
+    setCustomInput('')
+
+    if (currentStep < WIZARD_STEPS.length - 1) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      handleCreateScratch(updated)
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1)
+      setCustomInput(answers[WIZARD_STEPS[currentStep - 1].key] || '')
+    } else {
+      setMode('choice')
+    }
+  }
+
+  // Create Custom AI Funnel
+  async function handleCreateScratch(finalAnswers: Record<string, string>) {
+    setMode('loading')
+    try {
+      const response = await fetch('/api/ai/create-funnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: finalAnswers }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.message || 'Generation failed. Make sure you set a DeepSeek API key.')
+      }
+
+      if (data.success && data.funnelId) {
+        router.push(`/dashboard/funnels/${data.funnelId}/edit`)
+      } else {
+        throw new Error('API returned success but no funnel ID.')
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'An unknown error occurred'
+      alert(errMsg)
+      handleClose()
+    }
   }
 
   return (
-    <button
-      onClick={handleCreate}
-      disabled={creating}
-      style={{ background: '#39FF14', color: '#000', fontWeight: 700, fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1, letterSpacing: '-0.2px', boxShadow: '0 0 20px rgba(57,255,20,0.2)', transition: 'opacity 0.15s' }}
-    >
-      {creating ? 'Creating...' : '+ New funnel'}
-    </button>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        style={{
+          background: '#39FF14',
+          color: '#000',
+          fontWeight: 700,
+          fontSize: '13px',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          border: 'none',
+          cursor: 'pointer',
+          letterSpacing: '-0.2px',
+          boxShadow: '0 0 20px rgba(57,255,20,0.2)',
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 0 25px rgba(57,255,20,0.35)')}
+        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 0 20px rgba(57,255,20,0.2)')}
+      >
+        + New funnel
+      </button>
+
+      {/* MODAL OVERLAY */}
+      {isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '16px' }}>
+          <div style={{ width: '100%', maxWidth: '520px', background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px', color: '#fff', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+            
+            {/* CHOICE MODE */}
+            {mode === 'choice' && (
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', marginBottom: '6px' }}>Create New Funnel</h3>
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '24px' }}>Choose how you want to build this funnel.</p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <button
+                    onClick={handleCreateBase}
+                    style={{
+                      textAlign: 'left',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '16px 20px',
+                      cursor: 'pointer',
+                      color: '#fff',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+                  >
+                    <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>Start from Base Blueprint</strong>
+                    <span style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>Get started instantly using our pre-designed, high-converting Inner Circle template.</span>
+                  </button>
+
+                  <button
+                    onClick={() => setMode('wizard')}
+                    style={{
+                      textAlign: 'left',
+                      background: 'rgba(57,255,20,0.02)',
+                      border: '1px solid rgba(57,255,20,0.15)',
+                      borderRadius: '12px',
+                      padding: '16px 20px',
+                      cursor: 'pointer',
+                      color: '#fff',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.05)'; e.currentTarget.style.borderColor = '#39FF14' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(57,255,20,0.02)'; e.currentTarget.style.borderColor = 'rgba(57,255,20,0.15)' }}
+                  >
+                    <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px', color: '#39FF14' }}>Start from Scratch (AI Guided) ✦</strong>
+                    <span style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>Answer 10 quick business questions and let DeepSeek generate a custom copy and layout tailored for you.</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleClose}
+                  style={{ marginTop: '24px', width: '100%', padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(255,255,255,0.4)', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* WIZARD MODE */}
+            {mode === 'wizard' && (
+              <div>
+                {/* Progress bar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#39FF14', letterSpacing: '0.8px' }}>
+                    Setup Wizard
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                    Step {currentStep + 1} of {WIZARD_STEPS.length}
+                  </span>
+                </div>
+                <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', marginBottom: '24px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#39FF14', width: `${((currentStep + 1) / WIZARD_STEPS.length) * 100}%`, transition: 'width 0.2s' }} />
+                </div>
+
+                <h3 style={{ fontSize: '18px', fontWeight: 700, lineHeight: '1.35', marginBottom: '20px', letterSpacing: '-0.3px' }}>
+                  {activeStep.question}
+                </h3>
+
+                {/* TEXT INPUT TYPE */}
+                {activeStep.type === 'text' && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (customInput.trim()) handleNext(customInput)
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      placeholder={activeStep.key === 'name' ? 'e.g. Elite Resellers' : 'Type your answer...'}
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        padding: '12px 14px',
+                        fontSize: '14px',
+                        color: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        marginBottom: '24px'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button type="button" onClick={handleBack} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}>Back</button>
+                      <button type="submit" disabled={!customInput.trim()} style={{ flex: 2, padding: '10px', background: !customInput.trim() ? 'rgba(255,255,255,0.04)' : '#39FF14', color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: !customInput.trim() ? 'default' : 'pointer', fontSize: '13px' }}>Next</button>
+                    </div>
+                  </form>
+                )}
+
+                {/* CHOICE TYPE */}
+                {activeStep.type === 'choice' && (
+                  <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                      {activeStep.options?.map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => handleNext(opt)}
+                          style={{
+                            textAlign: 'left',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '8px',
+                            padding: '11px 14px',
+                            fontSize: '13.5px',
+                            cursor: 'pointer',
+                            color: 'rgba(255,255,255,0.85)',
+                            transition: 'all 0.15s',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Or Custom Text Input */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                      <input
+                        type="text"
+                        value={customInput}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                        placeholder="Other custom response..."
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '8px',
+                          padding: '10px 12px',
+                          fontSize: '13px',
+                          color: '#fff',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={() => { if (customInput.trim()) handleNext(customInput) }}
+                        disabled={!customInput.trim()}
+                        style={{
+                          padding: '0 16px',
+                          background: !customInput.trim() ? 'rgba(255,255,255,0.04)' : '#39FF14',
+                          color: !customInput.trim() ? 'rgba(255,255,255,0.2)' : '#000',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          cursor: !customInput.trim() ? 'default' : 'pointer'
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button onClick={handleBack} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '13px' }}>Back</button>
+                      <button onClick={handleClose} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* LOADING/GENERATING MODE */}
+            {mode === 'loading' && (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid rgba(57,255,20,0.15)', borderTopColor: '#39FF14', borderRadius: '50%', animation: 'spin 1.2s infinite linear', margin: '0 auto 24px auto' }} />
+                <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Generating Your Funnel</h4>
+                <p style={{ fontSize: '13px', color: '#39FF14', fontWeight: 600, animation: 'pulse 1.5s infinite ease-in-out' }}>
+                  {loadingText}
+                </p>
+                <style>{`
+                  @keyframes spin {
+                    to { transform: rotate(360deg); }
+                  }
+                  @keyframes pulse {
+                    0%, 100% { opacity: 0.6; }
+                    50% { opacity: 1; }
+                  }
+                `}</style>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
