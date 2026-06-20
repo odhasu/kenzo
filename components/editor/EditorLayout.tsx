@@ -325,6 +325,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               )
             ) : (
               <AiBuilderPanel
+                funnelId={funnel.id}
                 blocks={blocks}
                 settings={settings}
                 onUpdatePage={(newBlocks, newSettings) => {

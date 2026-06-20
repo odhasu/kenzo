@@ -169,6 +169,25 @@ export async function POST(request: Request) {
       finalExplanation = 'Agent execution timed out without calling done.'
     }
 
+    // Save chat messages in database
+    try {
+      await supabase.from('chat_messages').insert({
+        user_id: user.id,
+        console_type: 'developer',
+        role: 'user',
+        content: prompt,
+      })
+      await supabase.from('chat_messages').insert({
+        user_id: user.id,
+        console_type: 'developer',
+        role: 'assistant',
+        content: finalExplanation,
+        logs: logs,
+      })
+    } catch (dbErr) {
+      console.error('Failed to save developer chat message to Supabase:', dbErr)
+    }
+
     return NextResponse.json({
       success: true,
       explanation: finalExplanation,

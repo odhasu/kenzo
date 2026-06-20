@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { Block, FunnelSettings } from '@/types/blocks'
 
 interface AiBuilderPanelProps {
+  funnelId?: string
   blocks: Block[]
   settings: FunnelSettings
   onUpdatePage: (newBlocks: Block[], newSettings?: FunnelSettings) => void
@@ -24,7 +25,7 @@ const SUGGESTIONS = [
   { label: 'Accent to Hot Pink 💖', prompt: 'Change the site accent color to hot pink (#ff007f)' },
 ]
 
-export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPanelProps) {
+export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiBuilderPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -48,6 +49,38 @@ export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPane
   useEffect(() => {
     checkConnection()
   }, [])
+
+  // Load chat history on mount
+  useEffect(() => {
+    async function fetchChatHistory() {
+      try {
+        const res = await fetch(`/api/chat?funnelId=${funnelId}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.success && data.messages && data.messages.length > 0) {
+          const mapped: Message[] = data.messages.map((m: { id: string; role: string; content: string }) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: '✦ Hello! I am your Kenzo AI design assistant. Tell me what you want to build or change, and I will modify the layout, blocks, and settings for you in real-time.',
+            },
+            ...mapped
+          ])
+        }
+      } catch (err) {
+        console.error('Failed to fetch chat history:', err)
+      }
+    }
+
+    if (funnelId) {
+      fetchChatHistory()
+    }
+  }, [funnelId])
 
   async function checkConnection() {
     setCheckingApi(true)
@@ -94,6 +127,7 @@ export function AiBuilderPanel({ blocks, settings, onUpdatePage }: AiBuilderPane
           settings,
           prompt: textToSend,
           model: selectedModel,
+          funnelId,
         }),
       })
 

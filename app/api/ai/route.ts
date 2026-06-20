@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 const SYSTEM_PROMPT = `You are Kenzo AI, a design-focused funnel building assistant.
 You are given the current state of a webpage: its blocks (a JSON array) and its global settings (accentColor, bgColor, textColor, font, tickerSpeed, pageTitle, faviconUrl).
@@ -195,7 +196,7 @@ Do NOT wrap the output in markdown code blocks. Return ONLY the raw JSON object.
 
 export async function POST(request: Request) {
   try {
-    const { blocks, settings, prompt, model: reqModel } = await request.json()
+    const { blocks, settings, prompt, model: reqModel, funnelId } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: 'Missing prompt' }, { status: 400 })
@@ -369,6 +370,31 @@ export async function POST(request: Request) {
 
     try {
       const parsedData = JSON.parse(cleanText)
+      
+      // Save chat messages in database if authenticated
+      try {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from('chat_messages').insert({
+            user_id: user.id,
+            funnel_id: funnelId || null,
+            console_type: 'editor',
+            role: 'user',
+            content: prompt,
+          })
+          await supabase.from('chat_messages').insert({
+            user_id: user.id,
+            funnel_id: funnelId || null,
+            console_type: 'editor',
+            role: 'assistant',
+            content: parsedData.explanation || 'Page updated successfully!',
+          })
+        }
+      } catch (dbErr) {
+        console.error('Failed to save chat message to Supabase:', dbErr)
+      }
+
       return NextResponse.json(parsedData)
     } catch (parseError) {
       console.error('Failed to parse AI JSON:', responseText, parseError)

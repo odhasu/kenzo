@@ -38,9 +38,37 @@ export default function DeveloperPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading, activeLogs])
 
-  // Check connection on mount
+  // Check connection and fetch chat history on mount
   useEffect(() => {
     checkConnection()
+
+    async function fetchHistory() {
+      try {
+        const res = await fetch('/api/chat?type=developer')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.success && data.messages && data.messages.length > 0) {
+          const mapped = data.messages.map((m: { id: string; role: string; content: string; logs?: LogEntry[] }) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            logs: m.logs || undefined
+          }))
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: '🛠️ Welcome to the Developer Console. I am your autonomous AI engineering assistant. Tell me what changes you want to make to the website source code (e.g., changing styling, adding pages, rewriting copy), and I will read and write the local codebase files to fulfill your request in real-time.',
+            },
+            ...mapped
+          ])
+        }
+      } catch (err) {
+        console.error('Failed to fetch developer chat history:', err)
+      }
+    }
+
+    fetchHistory()
   }, [])
 
   async function checkConnection() {
