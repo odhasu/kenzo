@@ -242,7 +242,7 @@ export function CreateFunnelButton() {
       }
 
       if (data.success && data.funnelId) {
-        router.push(`/dashboard/funnels/${data.funnelId}/edit`)
+        router.push(`/dashboard/funnels/${data.funnelId}/edit?tab=ai`)
       } else {
         throw new Error('API returned success but no funnel ID.')
       }

@@ -99,7 +99,13 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [status, setStatus] = useState(funnel.status)
-  const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'ai'>('settings')
+  const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'ai'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('tab') === 'ai') return 'ai'
+    }
+    return 'settings'
+  })
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectedBlock = blocks.find(b => b.id === selectedId) ?? null
