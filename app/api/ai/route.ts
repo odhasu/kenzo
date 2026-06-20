@@ -200,7 +200,7 @@ export async function POST(request: Request) {
 
     // 1. DeepSeek
     if (deepseekKey) {
-      const model = process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'
+      const model = process.env.DEEPSEEK_API_MODEL || 'deepseek-v4-pro'
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
