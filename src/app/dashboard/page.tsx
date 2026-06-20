@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserFunnels } from '@/lib/funnels'
+import { isAdmin } from '@/lib/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CreateFunnelButton } from './create-funnel-button'
@@ -9,13 +10,20 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const funnels = await getUserFunnels()
+  const [funnels, admin] = await Promise.all([getUserFunnels(), isAdmin()])
 
   return (
     <div className="min-h-screen bg-zinc-950">
       <header className="border-b border-zinc-800">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <h1 className="text-lg font-bold text-white">Kenzo</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold text-white">Kenzo</h1>
+            {admin && (
+              <Link href="/admin" className="rounded-full bg-red-900/30 px-2.5 py-0.5 text-xs font-medium text-red-400 transition hover:bg-red-900/50">
+                Admin
+              </Link>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-zinc-400">{user.email}</span>
             <LogoutButton />
