@@ -90,6 +90,11 @@ export async function POST(request: Request) {
     while (loopCount < maxLoops) {
       loopCount++
 
+      const baseModel = process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'
+      const model = (baseModel === 'deepseek-v4-pro' || baseModel === 'deepseek-v4-flash')
+        ? 'deepseek-chat'
+        : baseModel
+
       // Call DeepSeek API
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek-v4-pro',
+          model: model,
           messages: agentMessages,
           temperature: 0.1,
           response_format: { type: 'json_object' }
