@@ -19,8 +19,16 @@ export default async function DashboardPage() {
             <Link href="/" style={{ fontSize: '16px', fontWeight: 800, color: '#fff', textDecoration: 'none', letterSpacing: '-0.3px' }}>
               Kenzo
             </Link>
-            <nav style={{ display: 'flex', gap: '20px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#39FF14' }}>Funnels</span>
+            <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+              <Link href="/dashboard" style={{ fontSize: '13px', fontWeight: 600, color: '#39FF14', textDecoration: 'none' }}>
+                Funnels
+              </Link>
+              <Link
+                href="/dashboard/train"
+                style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
+              >
+                AI Training ✦
+              </Link>
             </nav>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
