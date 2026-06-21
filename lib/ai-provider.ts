@@ -1,7 +1,8 @@
 // Unified AI provider chain with retries and fallbacks.
 // All AI routes should use callAI() instead of directly calling provider APIs.
 //
-// Chain: DeepSeek → Vercel AI Gateway → Anthropic → OpenAI → Gemini
+// Chain: Anthropic (Claude) → Vercel AI Gateway → DeepSeek → OpenAI → Gemini
+// Claude is the default "best" quality model. DeepSeek is the "fast" option.
 // Each provider gets one attempt; on failure, fall through to the next.
 // Retries (if set) repeat the full chain.
 
@@ -20,6 +21,8 @@ export interface AICallOptions {
   retries?: number
   /** Preferred provider — skip to this if key is available */
   prefer?: 'deepseek' | 'aigateway' | 'anthropic' | 'openai' | 'gemini'
+  /** If true, callAI returns a ReadableStream<string> for SSE streaming */
+  stream?: boolean
 }
 
 interface ProviderDef {
@@ -76,9 +79,9 @@ async function tryProviderChain(userPrompt: string, opts: AICallOptions): Promis
 function buildChain(prefer?: AICallOptions['prefer']): ProviderDef[] {
   const all: ProviderDef[] = [
     {
-      name: 'deepseek',
-      model: normalizeModel(process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'),
-      call: callDeepSeek,
+      name: 'anthropic',
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6-20250514',
+      call: callAnthropic,
     },
     {
       name: 'aigateway',
@@ -86,9 +89,9 @@ function buildChain(prefer?: AICallOptions['prefer']): ProviderDef[] {
       call: callAIGateway,
     },
     {
-      name: 'anthropic',
-      model: 'claude-3-5-sonnet-20241022',
-      call: callAnthropic,
+      name: 'deepseek',
+      model: normalizeModel(process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'),
+      call: callDeepSeek,
     },
     {
       name: 'openai',
@@ -126,10 +129,18 @@ function providerKey(name: string): string | undefined {
 
 function normalizeModel(model: string): string {
   // DeepSeek v4 model names map to 'deepseek-chat'
-  if (model === 'deepseek-v4-pro' || model === 'deepseek-v4-flash') {
+  if (model === 'deepseek-v4-pro' || model === 'deepseek-v4-flash' || model === 'fast') {
     return 'deepseek-chat'
   }
   return model
+}
+
+/** Resolve model from user preference: "best" → Claude, "fast" → DeepSeek */
+export function resolvePrefer(modelChoice?: string): AICallOptions['prefer'] | undefined {
+  if (modelChoice === 'best' || modelChoice === 'claude') return 'anthropic'
+  if (modelChoice === 'fast' || modelChoice === 'deepseek-v4-pro' || modelChoice === 'deepseek-v4-flash') return 'deepseek'
+  if (modelChoice === 'gpt') return 'openai'
+  return undefined
 }
 
 // ── Provider implementations ──────────────────────────────────────────────────
@@ -197,6 +208,7 @@ async function callAIGateway(userPrompt: string, opts: AICallOptions): Promise<s
 
 async function callAnthropic(userPrompt: string, opts: AICallOptions): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY!
+  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6-20250514'
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -206,8 +218,8 @@ async function callAnthropic(userPrompt: string, opts: AICallOptions): Promise<s
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: opts.maxTokens || 4000,
+      model,
+      max_tokens: opts.maxTokens || 8192,
       system: opts.systemPrompt || '',
       messages: [{ role: 'user', content: userPrompt }],
       temperature: opts.temperature ?? 0.2,
@@ -299,4 +311,53 @@ function buildMessages(userPrompt: string, systemPrompt?: string) {
     { role: 'system' as const, content: systemPrompt },
     { role: 'user' as const, content: userPrompt },
   ]
+}
+
+// ── Streaming ──────────────────────────────────────────────────────────────────
+
+export interface StreamEvent {
+  type: 'token' | 'done' | 'error'
+  content?: string
+  data?: unknown
+  error?: string
+}
+
+/**
+ * Creates a ReadableStream that simulates streaming by emitting
+ * the explanation text token-by-token, then a final done event with full data.
+ * This gives the user real-time progress while processing completes server-side.
+ */
+export function createSimulatedStream(
+  explanation: string,
+  finalData: Record<string, unknown>,
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder()
+  const words = splitIntoChunks(explanation, 3) // 3 words per chunk
+  let index = 0
+
+  return new ReadableStream({
+    async pull(controller) {
+      if (index < words.length) {
+        const event: StreamEvent = { type: 'token', content: words[index] }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+        index++
+        // Small delay for natural streaming feel
+        await new Promise(r => setTimeout(r, 20))
+      } else {
+        const event: StreamEvent = { type: 'done', data: finalData }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+        controller.close()
+      }
+    },
+  })
+}
+
+function splitIntoChunks(text: string, wordsPerChunk: number): string[] {
+  const parts = text.split(/(\s+)/)
+  const chunks: string[] = []
+  for (let i = 0; i < parts.length; i += wordsPerChunk * 2) {
+    const chunk = parts.slice(i, i + wordsPerChunk * 2).join('')
+    if (chunk.trim()) chunks.push(chunk)
+  }
+  return chunks
 }

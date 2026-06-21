@@ -46,7 +46,7 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
   const [loading, setLoading] = useState(false)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [checkingApi, setCheckingApi] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<'deepseek-v4-pro' | 'deepseek-v4-flash'>('deepseek-v4-pro')
+  const [selectedModel, setSelectedModel] = useState<'best' | 'fast'>('best')
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -189,6 +189,10 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
     setPrompt('')
     setLoading(true)
 
+    // Create placeholder assistant message for streaming updates
+    const assistantId = crypto.randomUUID()
+    setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+
     try {
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -203,47 +207,84 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
         }),
       })
 
-      const data = await response.json()
+      // Handle SSE streaming
+      const contentType = response.headers.get('content-type') || ''
+      if (contentType.includes('text/event-stream')) {
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('No response body')
 
-      if (!response.ok) {
-        if (data.error === 'NO_API_KEY') {
-          setShowSetupGuide(true)
-          throw new Error('API key is not configured. Please follow the setup guide.')
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let streamedText = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const event = JSON.parse(line.slice(6))
+                if (event.type === 'token' && event.content) {
+                  streamedText += event.content
+                  // Update the assistant message in real-time
+                  setMessages((prev) => prev.map(m =>
+                    m.id === assistantId ? { ...m, content: streamedText } : m
+                  ))
+                } else if (event.type === 'done' && event.data) {
+                  const data = event.data
+                  processAIResponse(data, assistantId, streamedText)
+                  return
+                } else if (event.type === 'error') {
+                  throw new Error(event.error || 'Streaming error')
+                }
+              } catch {
+                // Skip malformed events
+              }
+            }
+          }
         }
-        throw new Error(data.message || 'Something went wrong during generation.')
-      }
-
-      // If the API returned a new session id, adopt it
-      if (data._sessionId && !activeSessionId) {
-        setActiveSessionId(data._sessionId)
-        await fetchSessions()
-      }
-
-      // Successful update
-      if (data.blocks && data.settings) {
-        onUpdatePage(data.blocks, data.settings)
-
-        const assistantMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: data.explanation || 'Page updated successfully!',
-        }
-        setMessages((prev) => [...prev, assistantMessage])
       } else {
-        throw new Error('AI returned an incomplete response structure.')
+        // Non-streaming fallback
+        const data = await response.json()
+        if (!response.ok) {
+          if (data.error === 'NO_API_KEY') {
+            setShowSetupGuide(true)
+            throw new Error('API key is not configured.')
+          }
+          throw new Error(data.message || 'Something went wrong.')
+        }
+        processAIResponse(data, assistantId, data.explanation || 'Page updated.')
       }
-
     } catch (err: unknown) {
       const errMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Error: ${errMessage}`,
-        error: true,
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) => prev.map(m =>
+        m.id === assistantId ? { ...m, content: `Error: ${errMessage}`, error: true } : m
+      ))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function processAIResponse(data: Record<string, unknown>, assistantId: string, explanation: string) {
+    // Adopt session id if newly created
+    if (data._sessionId && !activeSessionId) {
+      setActiveSessionId(data._sessionId as string)
+      await fetchSessions()
+    }
+
+    // Update final assistant message
+    setMessages((prev) => prev.map(m =>
+      m.id === assistantId ? { ...m, content: explanation, error: false } : m
+    ))
+
+    // Apply blocks + settings
+    if (data.blocks && data.settings) {
+      onUpdatePage(data.blocks as Block[], data.settings as FunnelSettings)
     }
   }
 
@@ -478,7 +519,7 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
           <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>AI Model</span>
           <select
             value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value as 'deepseek-v4-pro' | 'deepseek-v4-flash')}
+            onChange={(e) => setSelectedModel(e.target.value as 'best' | 'fast')}
             style={{
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -492,8 +533,8 @@ export function AiBuilderPanel({ funnelId, blocks, settings, onUpdatePage }: AiB
               fontFamily: 'inherit',
             }}
           >
-            <option value="deepseek-v4-pro">DeepSeek V4 Pro (HQ)</option>
-            <option value="deepseek-v4-flash">DeepSeek V4 Flash (Fast)</option>
+            <option value="best">Best (Claude)</option>
+            <option value="fast">Fast (DeepSeek)</option>
           </select>
         </div>
 
