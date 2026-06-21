@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
+import { FunnelBeacon } from '@/components/funnel/FunnelBeacon'
 import type { Block, FunnelSettings } from '@/types/blocks'
 import { DEFAULT_SETTINGS } from '@/types/blocks'
 import { resolveTokens } from '@/lib/themes'
@@ -26,7 +27,7 @@ async function getFunnelData(slug: string) {
   const rawSettings = (page?.settings || {}) as Partial<FunnelSettings>
   const settings: FunnelSettings = { ...DEFAULT_SETTINGS, ...rawSettings }
 
-  return { settings, blocks }
+  return { settings, blocks, funnelId: funnel.id }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -48,13 +49,14 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
 
   if (!data) notFound()
 
-  const { settings, blocks } = data
+  const { settings, blocks, funnelId } = data
   const visibleBlocks = blocks.filter(b => !b.hidden)
   const tokens = resolveTokens(settings)
   const isDark = !settings.theme.startsWith('light')
 
   return (
     <>
+      <FunnelBeacon funnelId={funnelId} slug={slug} />
       {settings.customCss && (
         <style dangerouslySetInnerHTML={{ __html: settings.customCss }} />
       )}
