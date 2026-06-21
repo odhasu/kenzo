@@ -98,6 +98,45 @@ Replace the form wizard with a single split-screen at `/create`.
 
 ---
 
+## Clyro-alignment phases (current focus)
+
+Bring the builder to full 1:1 parity with [Clyro](REFERENCE-CLYRO.md). See the mapping table there for what's built vs planned.
+
+### Phase 7 — Editor re-layout (AI-left, Sections-right)
+- [ ] Move AI composer to the LEFT rail; move section tree to the RIGHT alongside Settings
+- [ ] Composer parity: model picker, 📎 attach/upload, Clyro chat styling — **no credits, no report-footer**
+**Acceptance**: 3-panel layout matches Clyro (left chat / center preview / right Sections·Settings).
+
+### Phase 8 — Inspect / scoped edits
+- [ ] Clicking a block in the preview sets `selectedId` and arms scoping
+- [ ] `/api/ai` accepts `selectedId` → AI returns `ops` touching only that block
+- [ ] `applyOps()` leaves all other blocks unchanged; whole-funnel edit when no selection
+**Acceptance**: Selecting a block + editing changes only that block; nothing else moves.
+
+### Phase 9 — Sections tree + new section types
+- [ ] Regroup tree as **HEADER / TEMPLATE / FOOTER / OVERLAY**
+- [ ] Add block types: `ic-announcement`, `ic-header`, `ic-footer`, `ic-popup` (exit-intent/lead-capture)
+- [ ] Per-item visibility toggle; drag-to-reorder
+**Acceptance**: All 4 groups populated; can add/hide/reorder; OVERLAY popups render.
+
+### Phase 10 — Templates gallery + Library
+- [ ] `/templates` gallery page: cards with live mini-preview, filter/search, "Use template"
+- [ ] Polish the 6 templates (fill `seedProps`, tighten copy, add thumbnails/tags) — see [TEMPLATES.md](TEMPLATES.md)
+- [ ] Library: `011_library_sections.sql`, `/api/library`, "Save to Library" + insert from Sections "+"
+**Acceptance**: Browse/use templates from gallery; save + reuse a section via Library.
+
+### Phase 11 — Code view + Preview-data
+- [ ] Read-only Code view: `Block[]` JSON + `FunnelSettings` + resolved CSS vars
+- [ ] Preview-data layer: mock offer/testimonials/pricing seeded from `business_profiles`
+**Acceptance**: Code view shows current funnel; preview looks realistic pre-publish.
+
+### Phase 12 — Publish = validated export
+- [ ] Validate funnel (valid blocks, required fields, no broken refs) before publish
+- [ ] Publish → ISR `/f/[slug]` + copyable share link; optional "Built with kenzo" badge on free tier
+**Acceptance**: Publish blocks on invalid funnel with clear errors; valid funnel goes live <1s.
+
+---
+
 ## Future (post-phase)
 
 - Public template marketplace

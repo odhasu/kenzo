@@ -1,8 +1,10 @@
 # Create Flow — Live-Chat Split-Screen
 
+> **Two ways to create** (like [Clyro](REFERENCE-CLYRO.md)): pick a **template** from the [gallery](TEMPLATES.md) → straight into the editor, OR **build with AI** via the live-chat split-screen below. This doc covers the AI path. Dashboard "New funnel" offers both.
+
 ## Overview
 
-The `/create` page is the centerpiece of Kenzo. It replaces the old form-based wizard (`OnboardingWizard`) with a single split-screen:
+The `/create` page is a centerpiece of Kenzo. It replaces the old form-based wizard (`OnboardingWizard`) with a single split-screen:
 
 ```
 ┌─────────────────────┬──────────────────────────┐
@@ -122,4 +124,7 @@ AI chooses from 4 archetypes based on answers:
 1. User clicks "Done" or AI signals completion
 2. Funnel persisted via `createFunnel()` + page with blocks+settings
 3. Redirect to `/dashboard/funnels/[id]/edit?tab=ai`
-4. Future: inline fade-in of editor chrome on same screen (no redirect)
+4. Lands in the 3-panel builder ([EDITOR.md](EDITOR.md)) — left AI composer (continues the same chat), center live preview (click a block to **scope** the next edit — Inspect), right Sections tree + Settings
+5. Future: inline fade-in of editor chrome on the same screen (no redirect)
+
+> The create chat and the editor chat are the **same composer** — model picker + 📎 upload, no credits. Conversation history persists across the transition via `chat_messages`.

@@ -1,5 +1,8 @@
 # Data Model
 
+> **Templates are code-defined, not DB rows** — they live in `lib/templates.ts` (`TEMPLATES`). See [TEMPLATES.md](TEMPLATES.md). Only the **Library** (user-saved sections) needs a table.
+> **No credits/billing tables** — kenzo does not meter AI usage.
+
 ## Tables
 
 ### funnels (migration 002)
@@ -130,6 +133,21 @@ RLS: `auth.uid() = user_id`
 Indexes: `funnel_id`, `event_type`, `created_at`
 RLS: owner reads own funnels' events; public INSERT for views/web-vitals from `/f/[slug]`
 
+### library_sections (migration 011 — 📋 planned)
+User-saved reusable sections (Clyro's Library). See [TEMPLATES.md](TEMPLATES.md#library-).
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | auto |
+| `user_id` | uuid FK | → auth.users |
+| `name` | text | user-visible label |
+| `blocks` | jsonb | `Block[]` — the saved section(s) |
+| `thumbnail` | text | optional preview image URL |
+| `created_at` | timestamptz | auto |
+
+RLS: `auth.uid() = user_id`
+
+> **Preview-data** (mock offer/testimonials/pricing for the builder preview) reuses `business_profiles` ✅. If a richer mock set is needed later, add `preview_data` (jsonb on `pages` or a small per-funnel table) — 📋, not required yet.
+
 ## Relationships
 
 ```
@@ -139,12 +157,13 @@ funnels 1──N funnel_events
 funnels 1──N chat_messages
 users   1──1 business_profiles
 users   1──N funnels
+users   1──N library_sections   (📋)
 ```
 
 ## Migration rules
 
 1. All schema changes = new numbered SQL file in `supabase/migrations/`
-2. Format: `NNN_description.sql` (next = 010)
+2. Format: `NNN_description.sql` (next = 011 → `011_library_sections.sql`)
 3. Never edit old migration files
 4. Always include RLS policies
 5. Always include appropriate indexes
