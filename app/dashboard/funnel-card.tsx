@@ -13,7 +13,7 @@ type Funnel = {
 export function FunnelCard({ funnel }: { funnel: Funnel }) {
   return (
     <Link
-      href={`/dashboard/funnels/${funnel.id}/edit`}
+      href={`/dashboard/funnels/${funnel.id}`}
       className="group block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow-md"
     >
       <div className="mb-3 flex items-start justify-between">
