@@ -2,180 +2,31 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import type { Block, BlockType, BlockProps, FunnelSettings, BackgroundId, ThemeId, LetterSpacing, FontWeight, SectionSpacing, ButtonStyle, ButtonSize } from '@/types/blocks'
+import type { Block, FunnelSettings, ThemeId } from '@/types/blocks'
+import { DEFAULT_SETTINGS } from '@/types/blocks'
+import { makeBaseFunnel } from '@/lib/templates'
+import { THEME_PRESETS, resolveTokens } from '@/lib/themes'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
-import { resolveTokens } from '@/lib/themes'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import { PreviewErrorBoundary } from '@/components/PreviewErrorBoundary'
-import { DEFAULT_SETTINGS } from '@/types/blocks'
 
 // ═══════════════════════════════════════════
-// TYPES
+// COLOR SWATCHES
 // ═══════════════════════════════════════════
-type ChatMessage = {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  error?: boolean
-}
-
-const SUGGESTIONS = [
-  { label: 'High-ticket reselling course', prompt: 'I sell a $1k reselling course teaching beginners how to flip sneakers and streetwear for profit.' },
-  { label: 'Fitness coaching program', prompt: 'I sell a $500/month 1-on-1 fitness coaching program for busy professionals who want to get in shape.' },
-  { label: 'Trading mentorship', prompt: 'I offer a $2k forex trading mentorship for people who want to quit their 9-5.' },
-  { label: 'Agency lead generation', prompt: 'I run a done-for-you lead generation agency for real estate agents. $1.5k/month retainer.' },
+const COLOR_SWATCHES = [
+  { label: 'Green', hex: '#39FF14' },
+  { label: 'Blue', hex: '#3B82F6' },
+  { label: 'White', hex: '#FFFFFF' },
+  { label: 'Black', hex: '#111111' },
+  { label: 'Pink', hex: '#EC4899' },
+  { label: 'Purple', hex: '#A855F7' },
+  { label: 'Orange', hex: '#FF4500' },
 ]
 
-// ═══════════════════════════════════════════
-// SANITIZE AI RESPONSE — prevent crashes from bad data
-// ═══════════════════════════════════════════
-
-const VALID_BLOCK_TYPES: Set<string> = new Set([
-  'heading', 'text', 'button', 'image', 'form',
-  'ic-hero', 'ic-ticker', 'ic-cards', 'ic-faq', 'ic-apply', 'ic-cta', 'ic-results',
-])
-
-const VALID_BACKGROUNDS: Set<string> = new Set([
-  'none', 'gradient', 'particles', 'grid', 'glow', 'aurora', 'dots', 'noise', 'waves', 'stars',
-])
-
-const VALID_THEMES: Set<string> = new Set([
-  'dark-green', 'dark-minimal', 'light-clean', 'light-blue',
-])
-
-function sanitizeProps(type: string, raw: unknown): Record<string, unknown> {
-  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-
-  switch (type) {
-    case 'ic-hero':
-      return {
-        badge: typeof p.badge === 'string' ? p.badge : '',
-        headline: typeof p.headline === 'string' ? p.headline : '',
-        subtext: typeof p.subtext === 'string' ? p.subtext : '',
-        ctaLabel: typeof p.ctaLabel === 'string' ? p.ctaLabel : '',
-        ctaHref: typeof p.ctaHref === 'string' ? p.ctaHref : '',
-      }
-    case 'ic-ticker':
-      return {
-        items: Array.isArray(p.items) ? p.items.filter((i: unknown) => typeof i === 'string') : [],
-      }
-    case 'ic-cards':
-      return {
-        headline: typeof p.headline === 'string' ? p.headline : '',
-        cards: Array.isArray(p.cards)
-          ? p.cards.filter((c: unknown): c is Record<string, unknown> => typeof c === 'object' && c !== null).map((c) => ({
-              title: typeof c.title === 'string' ? c.title : '',
-              desc: typeof c.desc === 'string' ? c.desc : '',
-              bullets: Array.isArray(c.bullets) ? c.bullets.filter((b: unknown) => typeof b === 'string') : [],
-            }))
-          : [],
-        ctaLabel: typeof p.ctaLabel === 'string' ? p.ctaLabel : '',
-        ctaHref: typeof p.ctaHref === 'string' ? p.ctaHref : '',
-      }
-    case 'ic-faq':
-      return {
-        headline: typeof p.headline === 'string' ? p.headline : '',
-        items: Array.isArray(p.items)
-          ? p.items.filter((i: unknown): i is Record<string, unknown> => typeof i === 'object' && i !== null).map((i) => ({
-              q: typeof i.q === 'string' ? i.q : '',
-              a: typeof i.a === 'string' ? i.a : '',
-            }))
-          : [],
-      }
-    case 'ic-apply':
-      return {
-        headline: typeof p.headline === 'string' ? p.headline : '',
-        subtext: typeof p.subtext === 'string' ? p.subtext : '',
-      }
-    case 'ic-cta':
-      return {
-        label: typeof p.label === 'string' ? p.label : '',
-        href: typeof p.href === 'string' ? p.href : '',
-        subtext: typeof p.subtext === 'string' ? p.subtext : '',
-      }
-    case 'ic-results':
-      return {
-        headline: typeof p.headline === 'string' ? p.headline : '',
-        photos: Array.isArray(p.photos) ? p.photos.filter((ph: unknown) => typeof ph === 'string') : [],
-      }
-    case 'form':
-      return {
-        fields: Array.isArray(p.fields)
-          ? p.fields.filter((f: unknown) => typeof f === 'string' && ['email', 'name', 'phone'].includes(f))
-          : ['email'],
-      }
-    case 'heading':
-    case 'text':
-      return { text: typeof p.text === 'string' ? p.text : '' }
-    case 'button':
-      return {
-        label: typeof p.label === 'string' ? p.label : '',
-        href: typeof p.href === 'string' ? p.href : '',
-      }
-    case 'image':
-      return {
-        src: typeof p.src === 'string' ? p.src : '',
-        alt: typeof p.alt === 'string' ? p.alt : '',
-      }
-    default:
-      return {}
-  }
-}
-
-function sanitizeBlocks(blocks: unknown): Block[] {
-  if (!Array.isArray(blocks)) return []
-  return blocks
-    .filter((b): b is Record<string, unknown> => typeof b === 'object' && b !== null)
-    .filter(b => typeof b.type === 'string' && VALID_BLOCK_TYPES.has(b.type))
-    .map(b => {
-      const rawProps = typeof b.props === 'object' && b.props !== null ? b.props : {}
-      return {
-        id: typeof b.id === 'string' && b.id.length > 0 ? b.id : crypto.randomUUID(),
-        type: b.type as BlockType,
-        props: sanitizeProps(b.type as string, rawProps),
-        hidden: typeof b.hidden === 'boolean' ? b.hidden : undefined,
-      }
-    }) as unknown as Block[]
-}
-
-function sanitizeSettings(raw: unknown): FunnelSettings {
-  const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-
-  return {
-    theme: (typeof s.theme === 'string' && VALID_THEMES.has(s.theme) ? s.theme : 'dark-green') as ThemeId,
-    accentColor: typeof s.accentColor === 'string' ? s.accentColor : '',
-    bgColor: typeof s.bgColor === 'string' ? s.bgColor : '',
-    textColor: typeof s.textColor === 'string' ? s.textColor : '',
-    font: typeof s.font === 'string' && s.font.length > 0 ? s.font : 'Inter',
-    headingFont: typeof s.headingFont === 'string' ? s.headingFont : '',
-    fontScale: safeNum(s.fontScale, 0.8, 1.2, 1.0),
-    letterSpacing: (typeof s.letterSpacing === 'string' && ['tight', 'normal', 'wide'].includes(s.letterSpacing) ? s.letterSpacing : 'tight') as LetterSpacing,
-    fontWeight: (typeof s.fontWeight === 'string' && ['regular', 'medium', 'bold'].includes(s.fontWeight) ? s.fontWeight : 'bold') as FontWeight,
-    maxWidth: safeNum(s.maxWidth, 600, 1400, 1100),
-    sectionSpacing: (typeof s.sectionSpacing === 'string' && ['compact', 'normal', 'spacious'].includes(s.sectionSpacing) ? s.sectionSpacing : 'normal') as SectionSpacing,
-    borderRadius: safeNum(s.borderRadius, 0, 24, 12),
-    buttonStyle: (typeof s.buttonStyle === 'string' && ['filled', 'outline', 'ghost'].includes(s.buttonStyle) ? s.buttonStyle : 'filled') as ButtonStyle,
-    buttonSize: (typeof s.buttonSize === 'string' && ['sm', 'md', 'lg'].includes(s.buttonSize) ? s.buttonSize : 'lg') as ButtonSize,
-    buttonRadius: safeNum(s.buttonRadius, 0, 50, 12),
-    glowEnabled: typeof s.glowEnabled === 'boolean' ? s.glowEnabled : true,
-    gradientHeadlines: typeof s.gradientHeadlines === 'boolean' ? s.gradientHeadlines : true,
-    glassmorphism: typeof s.glassmorphism === 'boolean' ? s.glassmorphism : false,
-    tickerSpeed: safeNum(s.tickerSpeed, 8, 80, 34),
-    background: (typeof s.background === 'string' && VALID_BACKGROUNDS.has(s.background) ? s.background : 'none') as BackgroundId,
-    pageTitle: typeof s.pageTitle === 'string' ? s.pageTitle : '',
-    faviconUrl: typeof s.faviconUrl === 'string' ? s.faviconUrl : '',
-    ogImage: typeof s.ogImage === 'string' ? s.ogImage : '',
-    pixelId: typeof s.pixelId === 'string' ? s.pixelId : '',
-    customCss: typeof s.customCss === 'string' ? s.customCss : '',
-  }
-}
-
-function safeNum(val: unknown, min: number, max: number, fallback: number): number {
-  if (typeof val !== 'number' || isNaN(val) || !isFinite(val)) return fallback
-  return Math.max(min, Math.min(max, Math.round(val)))
-}
+const STEPS = ['Base', 'Style', 'Colors'] as const
+type Step = (typeof STEPS)[number]
 
 // ═══════════════════════════════════════════
 // COMPONENT
@@ -183,50 +34,37 @@ function safeNum(val: unknown, min: number, max: number, fallback: number): numb
 export default function CreatePage() {
   const router = useRouter()
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hey! I build high-converting funnels for coaches, course creators, and agency owners. What do you sell, and who's it for? I'll build a first draft, then we'll dial in the style together.",
-    },
-  ])
-  const [draftBlocks, setDraftBlocks] = useState<Block[]>([])
-  const [draftSettings, setDraftSettings] = useState<FunnelSettings>(DEFAULT_SETTINGS)
-  const [ready, setReady] = useState(false)
-  const [prompt, setPrompt] = useState('')
-  const [loading, setLoading] = useState(false)
+  // ── Funnel state (always valid — starts from makeBaseFunnel) ──
+  const [blocks] = useState<Block[]>(() => makeBaseFunnel().blocks)
+  const [settings, setSettings] = useState<FunnelSettings>(() => makeBaseFunnel().settings)
+
+  // ── Wizard state ───────────────────────────────────
+  const [step, setStep] = useState<Step>('Base')
   const [saving, setSaving] = useState(false)
-  const [showSetupGuide, setShowSetupGuide] = useState(false)
-  const [checkingApi, setCheckingApi] = useState(true)
+
+  // ── Auth + API check ───────────────────────────────
+  const [checking, setChecking] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [showSetupGuide, setShowSetupGuide] = useState(false)
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // ── Auto-scroll chat ──────────────────────────────────────────
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
-
-  // ── Check auth + API on mount ──────────────────────────────────
   useEffect(() => {
     async function check() {
-      setCheckingApi(true)
+      setChecking(true)
       try {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           setIsAuthenticated(false)
-          setCheckingApi(false)
+          setChecking(false)
           return
         }
         setIsAuthenticated(true)
 
-        // Quick API key check — don't send a real message, just hit endpoint
-        const res = await fetch('/api/ai/chat-create', {
+        // Check /api/ai (editor endpoint) instead of chat-create
+        const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: 'API_KEY_CHECK' }], draftBlocks: [], draftSettings: DEFAULT_SETTINGS }),
+          body: JSON.stringify({ blocks: [], settings: DEFAULT_SETTINGS, prompt: 'API_KEY_CHECK' }),
         })
         const data = await res.json()
         if (data.error === 'NO_API_KEY') {
@@ -237,81 +75,36 @@ export default function CreatePage() {
       } catch {
         setShowSetupGuide(false)
       } finally {
-        setCheckingApi(false)
+        setChecking(false)
       }
     }
     check()
   }, [])
 
-  // ── Focus input on mount ──────────────────────────────────────
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  // ── Send message ──────────────────────────────────────────────
-  async function handleSend(textToSend: string) {
-    if (!textToSend.trim() || loading) return
-
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: textToSend,
-    }
-
-    const updatedMessages = [...messages, userMsg]
-    setMessages(updatedMessages)
-    setPrompt('')
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/ai/chat-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
-          draftBlocks,
-          draftSettings,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        if (data.error === 'NO_API_KEY') {
-          setShowSetupGuide(true)
-          throw new Error('API key not configured.')
-        }
-        throw new Error(data.message || 'Something went wrong.')
-      }
-
-      // Update funnel state — sanitize AI response before setState
-      if (data.blocks) setDraftBlocks(sanitizeBlocks(data.blocks))
-      if (data.settings) setDraftSettings(sanitizeSettings(data.settings))
-      if (data.ready) setReady(true)
-
-      const assistantMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: data.reply || 'Funnel updated.',
-      }
-      setMessages(prev => [...prev, assistantMsg])
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error'
-      const errorMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Error: ${errMsg}`,
-        error: true,
-      }
-      setMessages(prev => [...prev, errorMsg])
-    } finally {
-      setLoading(false)
-    }
+  // ── Settings updaters ──────────────────────────────
+  function setTheme(theme: ThemeId) {
+    setSettings(prev => ({ ...prev, theme, accentColor: '', bgColor: '', textColor: '' }))
   }
 
-  // ── Open in editor (save funnel + page + chat, then redirect) ─
+  function setAccentColor(hex: string) {
+    setSettings(prev => ({ ...prev, accentColor: hex }))
+  }
+
+  function setBgColor(hex: string) {
+    setSettings(prev => ({ ...prev, bgColor: hex }))
+  }
+
+  function setTextColor(hex: string) {
+    setSettings(prev => ({ ...prev, textColor: hex }))
+  }
+
+  function resetColors() {
+    setSettings(prev => ({ ...prev, accentColor: '', bgColor: '', textColor: '' }))
+  }
+
+  // ── Persist + redirect ─────────────────────────────
   async function handleOpenInEditor() {
-    if (saving || draftBlocks.length === 0) return
+    if (saving) return
     setSaving(true)
 
     try {
@@ -319,58 +112,34 @@ export default function CreatePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Generate name from first heading or hero
-      let funnelName = 'My Funnel'
-      const hero = draftBlocks.find(b => b.type === 'ic-hero')
-      if (hero && hero.type === 'ic-hero') {
-        funnelName = hero.props.headline.slice(0, 60)
-      } else {
-        const heading = draftBlocks.find(b => b.type === 'heading')
-        if (heading && heading.type === 'heading') {
-          funnelName = heading.props.text.slice(0, 60)
-        }
-      }
+      const hero = blocks.find(b => b.type === 'ic-hero')
+      const funnelName = hero && hero.type === 'ic-hero'
+        ? hero.props.headline.slice(0, 60)
+        : 'My Funnel'
 
       const baseSlug = funnelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'funnel'
       const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 8)}`
 
-      // Save funnel
       const { data: funnel, error: funnelError } = await supabase
         .from('funnels')
         .insert({ name: funnelName, slug, user_id: user.id })
         .select()
         .single()
 
-      if (funnelError) throw new Error(`Failed to create funnel: ${funnelError.message}`)
+      if (funnelError) throw new Error(funnelError.message)
 
-      // Save page
       const { error: pageError } = await supabase
         .from('pages')
         .insert({
           funnel_id: funnel.id,
           slug: 'main',
           title: 'Main Page',
-          content: draftBlocks,
-          settings: draftSettings,
+          content: blocks,
+          settings,
           order: 0,
         })
 
-      if (pageError) throw new Error(`Failed to save page: ${pageError.message}`)
-
-      // Save chat messages with funnel_id
-      const dbMessages = messages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({
-          user_id: user.id,
-          funnel_id: funnel.id,
-          console_type: 'create',
-          role: m.role,
-          content: m.content,
-        }))
-
-      if (dbMessages.length > 0) {
-        await supabase.from('chat_messages').insert(dbMessages)
-      }
+      if (pageError) throw new Error(pageError.message)
 
       router.push(`/dashboard/funnels/${funnel.id}/edit?tab=ai`)
     } catch (err: unknown) {
@@ -380,14 +149,15 @@ export default function CreatePage() {
     }
   }
 
-  // ── Canvas CSS vars ───────────────────────────────────────────
-  const hasBlocks = draftBlocks.length > 0
-  const tokens = resolveTokens(draftSettings)
-  const canvasVars = tokens as unknown as React.CSSProperties
-  const isDark = !draftSettings.theme.startsWith('light')
+  // ── Preview vars ───────────────────────────────────
+  const tokens = resolveTokens(settings) as unknown as React.CSSProperties
+  const isDark = !settings.theme.startsWith('light')
+  const themePreset = THEME_PRESETS[settings.theme]
+  const hasColorOverrides = !!(settings.accentColor || settings.bgColor || settings.textColor)
+  const currentStepIdx = STEPS.indexOf(step)
 
-  // ── Render ────────────────────────────────────────────────────
-  if (checkingApi) {
+  // ── States ────────────────────────────────────────
+  if (checking) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-white/[0.06] border-t-[#39FF14]" />
@@ -415,7 +185,7 @@ export default function CreatePage() {
     )
   }
 
-  if (showSetupGuide && !checkingApi) {
+  if (showSetupGuide) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-4">
         <div className="w-full max-w-md rounded-2xl border border-white/[0.06] bg-[#0a0a0a] p-7 shadow-2xl">
@@ -450,24 +220,18 @@ export default function CreatePage() {
           </Link>
           <span className="text-white/15">·</span>
           <span className="text-[13px] font-semibold text-white/80">New Funnel</span>
-          {draftBlocks.length > 0 && (
-            <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] font-semibold text-white/40">
-              {draftBlocks.length} blocks
-            </span>
-          )}
+          <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] font-semibold text-white/40">
+            {blocks.length} blocks
+          </span>
         </div>
         <div className="flex items-center gap-3">
-          {ready && (
-            <span className="text-[11px] text-green-400/80 font-medium">Ready to publish</span>
-          )}
           <button
             onClick={handleOpenInEditor}
-            disabled={saving || draftBlocks.length === 0}
+            disabled={saving}
             className="rounded-lg px-4 py-1.5 text-[13px] font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
             style={{
-              background: ready ? (draftSettings.accentColor || '#39FF14') : 'rgba(255,255,255,0.08)',
-              color: ready ? '#000' : 'rgba(255,255,255,0.6)',
-              cursor: saving ? 'not-allowed' : 'pointer',
+              background: settings.accentColor || themePreset.cssVars['--accent'],
+              color: isDark ? '#000' : '#fff',
             }}
           >
             {saving ? 'Saving…' : 'Open in Editor →'}
@@ -475,139 +239,265 @@ export default function CreatePage() {
         </div>
       </header>
 
-      {/* ── BODY: Chat + Preview ────────────────────────────────── */}
+      {/* ── BODY: Panel + Preview ────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* ── LEFT: Chat panel ──────────────────────────────────── */}
-        <div className="flex w-[440px] shrink-0 flex-col border-r border-white/[0.07] bg-[#0a0a0a]">
-          {/* Messages feed */}
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
-            {messages.map(msg => (
-              <div
-                key={msg.id}
-                className={`max-w-[88%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'ml-auto bg-white/[0.08] border border-white/[0.08] text-white/90'
-                    : msg.error
-                    ? 'mr-auto border border-red-500/20 bg-red-500/[0.06] text-red-400'
-                    : 'mr-auto border border-[#39FF14]/15 bg-[#39FF14]/[0.04] text-gray-200'
-                }`}
-              >
-                {msg.content}
+        {/* ── LEFT: Wizard panel ─────────────────────────────────── */}
+        <div className="flex w-[380px] shrink-0 flex-col border-r border-white/[0.07] bg-[#0a0a0a] overflow-y-auto">
+          {/* Step indicator */}
+          <div className="flex items-center gap-1 px-4 py-3 border-b border-white/[0.05]">
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center gap-1">
+                <button
+                  onClick={() => setStep(s)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                    s === step
+                      ? 'bg-white/[0.12] text-white'
+                      : i < currentStepIdx
+                      ? 'text-white/40 hover:text-white/70'
+                      : 'text-white/25'
+                  }`}
+                >
+                  {i + 1}. {s}
+                </button>
+                {i < STEPS.length - 1 && <span className="text-white/10 text-[10px]">→</span>}
               </div>
             ))}
+          </div>
 
-            {/* Loading dots */}
-            {loading && (
-              <div className="mr-auto flex max-w-[85%] items-center gap-2 rounded-xl border border-[#39FF14]/8 bg-[#39FF14]/[0.02] px-4 py-2.5">
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full bg-[#39FF14]"
-                  style={{ animation: 'pulse 1.2s infinite ease-in-out' }}
-                />
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full bg-[#39FF14]"
-                  style={{ animation: 'pulse 1.2s 0.2s infinite ease-in-out' }}
-                />
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full bg-[#39FF14]"
-                  style={{ animation: 'pulse 1.2s 0.4s infinite ease-in-out' }}
-                />
-                <span className="ml-1 text-xs text-white/30">Thinking…</span>
-                <style>{`
-                  @keyframes pulse {
-                    0%, 100% { opacity: 0.3; transform: scale(0.8); }
-                    50% { opacity: 1; transform: scale(1.3); }
-                  }
-                `}</style>
+          <div className="p-4 space-y-4">
+            {/* ── Step 1: Base ──────────────────────────────────── */}
+            {step === 'Base' && (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-[#39FF14]/20 bg-[#39FF14]/[0.03] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">⚡</span>
+                    <span className="text-sm font-bold text-white">Base Template</span>
+                    <span className="rounded-full border border-[#39FF14]/20 px-2 py-0.5 text-[9px] font-bold text-[#39FF14] uppercase tracking-[0.5px]">Selected</span>
+                  </div>
+                  <p className="text-xs text-white/50 leading-relaxed">
+                    6 sections: Hero → Ticker → Cards → Results → FAQ → CTA. All copy is placeholder — you&apos;ll customize it in the editor with AI chat.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setStep('Style')}
+                  className="w-full rounded-xl py-2.5 text-[13px] font-bold transition"
+                  style={{
+                    background: settings.accentColor || themePreset.cssVars['--accent'],
+                    color: isDark ? '#000' : '#fff',
+                  }}
+                >
+                  Next: Choose Style →
+                </button>
               </div>
             )}
 
-            <div ref={messagesEndRef} />
-          </div>
+            {/* ── Step 2: Style ─────────────────────────────────── */}
+            {step === 'Style' && (
+              <div className="space-y-3">
+                <p className="text-xs text-white/40">Pick a theme — the preview updates instantly.</p>
 
-          {/* Suggestion chips (first interaction only) */}
-          {messages.length === 1 && !loading && (
-            <div className="border-t border-white/[0.05] px-4 py-3">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[1px] text-white/20">Try an example</p>
-              <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS.map(s => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.values(THEME_PRESETS) as { id: ThemeId; name: string; cssVars: Record<string, string> }[]).map(preset => {
+                    const active = settings.theme === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => setTheme(preset.id as ThemeId)}
+                        className={`rounded-xl border p-3 text-left transition ${
+                          active
+                            ? 'border-white/25 bg-white/[0.06]'
+                            : 'border-white/[0.06] bg-white/[0.02] hover:border-white/15'
+                        }`}
+                      >
+                        {/* Color dots */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span
+                            className="inline-block h-3 w-3 rounded-full ring-1 ring-white/10"
+                            style={{ background: preset.cssVars['--bg'] }}
+                          />
+                          <span
+                            className="inline-block h-3 w-3 rounded-full ring-1 ring-white/10"
+                            style={{ background: preset.cssVars['--accent'] }}
+                          />
+                          <span
+                            className="inline-block h-3 w-3 rounded-full ring-1 ring-white/10"
+                            style={{ background: preset.cssVars['--text'] }}
+                          />
+                        </div>
+                        <span className="text-[12px] font-semibold text-white/80">{preset.name}</span>
+                        {active && (
+                          <span className="ml-1.5 text-[10px] text-white/40">✓</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="flex gap-2">
                   <button
-                    key={s.label}
-                    onClick={() => handleSend(s.prompt)}
-                    className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50 transition hover:border-[#39FF14]/30 hover:text-[#39FF14]"
+                    onClick={() => setStep('Base')}
+                    className="flex-1 rounded-xl border border-white/[0.08] py-2 text-[12px] text-white/40 hover:text-white/70 transition"
                   >
-                    {s.label}
+                    ← Back
                   </button>
-                ))}
+                  <button
+                    onClick={() => setStep('Colors')}
+                    className="flex-1 rounded-xl py-2 text-[12px] font-bold transition"
+                    style={{
+                      background: settings.accentColor || themePreset.cssVars['--accent'],
+                      color: isDark ? '#000' : '#fff',
+                    }}
+                  >
+                    Next: Colors →
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Input bar */}
-          <form
-            onSubmit={e => {
-              e.preventDefault()
-              handleSend(prompt)
-            }}
-            className="flex gap-2 border-t border-white/[0.07] p-3"
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder={loading ? 'Waiting for response…' : 'Type your message…'}
-              disabled={loading}
-              className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[13px] text-white placeholder-white/25 outline-none transition focus:border-[#39FF14]/30 disabled:opacity-40"
-              style={{ fontFamily: 'inherit' }}
-            />
-            <button
-              type="submit"
-              disabled={loading || !prompt.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#39FF14] text-sm font-bold text-black transition hover:bg-[#39FF14]/80 disabled:bg-white/[0.06] disabled:text-white/20"
-            >
-              →
-            </button>
-          </form>
+            {/* ── Step 3: Colors ─────────────────────────────────── */}
+            {step === 'Colors' && (
+              <div className="space-y-4">
+                <p className="text-xs text-white/40">Override theme colors — all optional. Preview updates live.</p>
+
+                {/* Accent */}
+                <div>
+                  <label className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.5px]">Accent Color</label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={settings.accentColor}
+                      onChange={e => setAccentColor(e.target.value)}
+                      placeholder={themePreset.cssVars['--accent']}
+                      className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12px] text-white placeholder-white/25 outline-none focus:border-white/20 font-mono"
+                    />
+                    <input
+                      type="color"
+                      value={settings.accentColor || themePreset.cssVars['--accent']}
+                      onChange={e => setAccentColor(e.target.value)}
+                      className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent"
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {COLOR_SWATCHES.map(c => (
+                      <button
+                        key={c.hex}
+                        onClick={() => setAccentColor(c.hex)}
+                        className="h-5 w-5 rounded-full border border-white/10 transition hover:scale-110"
+                        style={{ background: c.hex }}
+                        title={c.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Background */}
+                <div>
+                  <label className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.5px]">Background Color</label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={settings.bgColor}
+                      onChange={e => setBgColor(e.target.value)}
+                      placeholder={themePreset.cssVars['--bg']}
+                      className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12px] text-white placeholder-white/25 outline-none focus:border-white/20 font-mono"
+                    />
+                    <input
+                      type="color"
+                      value={settings.bgColor || themePreset.cssVars['--bg']}
+                      onChange={e => setBgColor(e.target.value)}
+                      className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div>
+                  <label className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.5px]">Text Color</label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={settings.textColor}
+                      onChange={e => setTextColor(e.target.value)}
+                      placeholder={themePreset.cssVars['--text']}
+                      className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12px] text-white placeholder-white/25 outline-none focus:border-white/20 font-mono"
+                    />
+                    <input
+                      type="color"
+                      value={settings.textColor || themePreset.cssVars['--text']}
+                      onChange={e => setTextColor(e.target.value)}
+                      className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Reset */}
+                {hasColorOverrides && (
+                  <button
+                    onClick={resetColors}
+                    className="text-[11px] text-white/30 hover:text-white/60 underline transition"
+                  >
+                    Reset to theme defaults
+                  </button>
+                )}
+
+                {/* Nav */}
+                <div className="flex gap-2 pt-2 border-t border-white/[0.05]">
+                  <button
+                    onClick={() => setStep('Style')}
+                    className="flex-1 rounded-xl border border-white/[0.08] py-2 text-[12px] text-white/40 hover:text-white/70 transition"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handleOpenInEditor}
+                    disabled={saving}
+                    className="flex-[2] rounded-xl py-2 text-[12px] font-bold transition disabled:opacity-30"
+                    style={{
+                      background: settings.accentColor || themePreset.cssVars['--accent'],
+                      color: isDark ? '#000' : '#fff',
+                    }}
+                  >
+                    {saving ? 'Saving…' : 'Open in Editor →'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── RIGHT: Live preview ───────────────────────────────── */}
         <main className="flex flex-1 items-start justify-center overflow-y-auto p-6">
-          {!hasBlocks ? (
-            <div className="flex flex-col items-center justify-center gap-3 pt-32 text-white/15">
-              <span className="text-4xl">⚡</span>
-              <p className="text-sm">Your funnel will appear here as we build it.</p>
-              <p className="text-xs text-white/10">Start chatting to generate a preview.</p>
-            </div>
-          ) : (
-            <PreviewErrorBoundary>
+          <PreviewErrorBoundary>
+            <div
+              className="w-full overflow-hidden rounded-lg transition-all duration-300"
+              style={{
+                maxWidth: settings.maxWidth || 1100,
+                boxShadow: isDark
+                  ? '0 4px 40px rgba(0,0,0,0.5)'
+                  : '0 4px 40px rgba(0,0,0,0.15)',
+                ...tokens,
+                fontFamily: `'${settings.font}', system-ui, sans-serif`,
+              }}
+            >
               <div
-                className="w-full overflow-hidden rounded-lg transition-all"
                 style={{
-                  maxWidth: draftSettings.maxWidth || 1100,
-                  boxShadow: isDark ? '0 4px 40px rgba(0,0,0,0.5)' : '0 4px 40px rgba(0,0,0,0.15)',
-                  ...canvasVars,
-                  fontFamily: `'${draftSettings.font}', system-ui, sans-serif`,
+                  background: settings.bgColor || (isDark ? '#0a0a0a' : '#fff'),
+                  position: 'relative',
+                  minHeight: '400px',
                 }}
               >
-                <div
-                  style={{
-                    background: draftSettings.bgColor || (isDark ? '#0a0a0a' : '#fff'),
-                    position: 'relative',
-                    minHeight: '400px',
-                  }}
-                >
-                  <FunnelBackground background={draftSettings.background} accent={draftSettings.accentColor} />
-                  <div style={{ position: 'relative', zIndex: 1 }}>
-                    {draftBlocks.filter(b => !b.hidden).map(block => (
-                      <div key={block.id} style={{ pointerEvents: 'none' }}>
-                        <BlockRenderer block={block} settings={draftSettings} />
-                      </div>
-                    ))}
-                  </div>
+                <FunnelBackground background={settings.background} accent={settings.accentColor} />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  {blocks.filter(b => !b.hidden).map(block => (
+                    <div key={block.id} style={{ pointerEvents: 'none' }}>
+                      <BlockRenderer block={block} settings={settings} />
+                    </div>
+                  ))}
                 </div>
               </div>
-            </PreviewErrorBoundary>
-          )}
+            </div>
+          </PreviewErrorBoundary>
         </main>
       </div>
     </div>
