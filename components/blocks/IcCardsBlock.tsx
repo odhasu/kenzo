@@ -46,7 +46,7 @@ export function IcCardsBlock({ props, settings }: { props: IcCardsProps; setting
         </h2>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {props.cards.map((card) => (
+          {(Array.isArray(props.cards) ? props.cards : []).map((card) => (
             <div key={card.title} style={{ paddingTop: '20px' }}>
               <span style={{ width: '16px', height: '16px', background: '#c8a96e', borderRadius: '50%', border: '3px solid #8a6a30', margin: '0 auto', display: 'block', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }} />
               <div style={{ background: 'var(--card)', color: 'var(--card-text)', borderRadius: '12px', padding: '24px 22px 28px', clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(50% + 14px) 100%, 50% calc(100% - 9px), calc(50% - 14px) 100%, 0 calc(100% - 14px))' }}>
@@ -54,7 +54,7 @@ export function IcCardsBlock({ props, settings }: { props: IcCardsProps; setting
                 <p style={{ fontSize: '14px', color: 'var(--card-text)', opacity: 0.65, marginBottom: '14px', lineHeight: 1.5 }}>{card.desc}</p>
                 <div style={{ height: '1px', background: 'rgba(0,0,0,0.1)', marginBottom: '14px' }} />
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '9px', padding: 0, margin: 0 }}>
-                  {card.bullets.map((b) => (
+                  {(Array.isArray(card.bullets) ? card.bullets : []).map((b) => (
                     <li key={b} style={{ fontSize: '13px', color: 'var(--card-text)', opacity: 0.65, display: 'flex', alignItems: 'flex-start', gap: '10px', lineHeight: 1.4 }}>
                       <span style={{ color: 'var(--card-text)', fontWeight: 800, flexShrink: 0 }}>✓</span>
                       {b}

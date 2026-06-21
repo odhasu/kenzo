@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { SYSTEM_PROMPT } from '@/lib/ai-prompt'
+import { SYSTEM_PROMPT, extractJson } from '@/lib/ai-prompt'
 import type { BlockType, ThemeId, BackgroundId } from '@/types/blocks'
 
 export async function POST(request: Request) {
@@ -89,6 +89,7 @@ WRITING INSTRUCTIONS:
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
+        max_tokens: 8192,
         temperature: 0.3,
         frequency_penalty: 0.3,
         presence_penalty: 0.3,
@@ -104,13 +105,8 @@ WRITING INSTRUCTIONS:
     const data = await res.json()
     const responseText = data.choices?.[0]?.message?.content || ''
 
-    // Clean up response text in case markdown blocks are returned
-    let cleanText = responseText.trim()
-    if (cleanText.includes('```json')) {
-      cleanText = cleanText.split('```json')[1].split('```')[0].trim()
-    } else if (cleanText.includes('```')) {
-      cleanText = cleanText.split('```')[1].split('```')[0].trim()
-    }
+    // Robust JSON extraction — handles fences, truncation, stray prose
+    const cleanText = extractJson(responseText)
 
     const parsedData = JSON.parse(cleanText)
     const blocks = parsedData.blocks || []

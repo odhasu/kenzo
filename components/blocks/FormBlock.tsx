@@ -52,7 +52,7 @@ export function FormBlock({ props, editable, onUpdate }: {
       onClick={() => editable && setEditing(true)}
       className={`space-y-3 rounded-xl border border-gray-200 bg-white p-4 ${editable ? 'cursor-pointer hover:border-zinc-600' : ''}`}
     >
-      {props.fields.map((field) => (
+      {(Array.isArray(props.fields) ? props.fields : (['email'] as FormField[])).map((field) => (
         <input
           key={field}
           type={field === 'email' ? 'email' : field === 'phone' ? 'tel' : 'text'}

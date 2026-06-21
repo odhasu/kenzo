@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { SYSTEM_PROMPT } from '@/lib/ai-prompt'
+import { SYSTEM_PROMPT, extractJson } from '@/lib/ai-prompt'
 
 export async function POST(request: Request) {
   try {
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userPrompt }
           ],
+          max_tokens: 8192,
           temperature: 0.2,
           frequency_penalty: 0.3,
           presence_penalty: 0.3,
@@ -173,13 +174,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Clean up response text in case markdown code blocks are returned
-    let cleanText = responseText.trim()
-    if (cleanText.includes('```json')) {
-      cleanText = cleanText.split('```json')[1].split('```')[0].trim()
-    } else if (cleanText.includes('```')) {
-      cleanText = cleanText.split('```')[1].split('```')[0].trim()
-    }
+    // Robust JSON extraction — handles fences, truncation, stray prose
+    const cleanText = extractJson(responseText)
 
     try {
       const parsedData = JSON.parse(cleanText)

@@ -25,7 +25,7 @@ export function IcFaqBlock({ props, settings }: { props: IcFaqProps; settings?: 
           {props.headline}
         </h2>
 
-        {props.items.map((item, i) => (
+        {(Array.isArray(props.items) ? props.items : []).map((item, i) => (
           <div key={i} onClick={() => setOpen(open === i ? null : i)} style={{ border: `1px solid ${open === i ? 'var(--accent-dim)' : 'var(--border)'}`, borderRadius: 'var(--radius)', overflow: 'hidden', marginBottom: '10px', cursor: 'pointer', transition: 'border-color 0.2s' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', fontSize: '16px', fontWeight: 700, userSelect: 'none', letterSpacing: '-0.2px' }}>
               {item.q}

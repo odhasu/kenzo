@@ -2,7 +2,8 @@ import type { IcTickerProps } from '@/types/blocks'
 
 export function IcTickerBlock({ props, tickerSpeed }: { props: IcTickerProps; tickerSpeed?: number }) {
   const speed = tickerSpeed ?? 34
-  const doubled = [...props.items, ...props.items]
+  const items = Array.isArray(props.items) ? props.items : []
+  const doubled = [...items, ...items]
   return (
     <div style={{ overflow: 'hidden', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--surface)', padding: '13px 0', fontFamily: "'Inter', system-ui, sans-serif" }} aria-hidden="true">
       <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: `icTicker ${speed}s linear infinite` }}>

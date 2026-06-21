@@ -2,7 +2,8 @@ import type { IcResultsProps } from '@/types/blocks'
 
 export function IcResultsBlock({ props, tickerSpeed }: { props: IcResultsProps; tickerSpeed?: number }) {
   const speed = tickerSpeed ?? 20
-  const validPhotos = props.photos.filter(Boolean)
+  const photos = Array.isArray(props.photos) ? props.photos : []
+  const validPhotos = photos.filter(Boolean)
   const doubled = [...validPhotos, ...validPhotos]
 
   return (

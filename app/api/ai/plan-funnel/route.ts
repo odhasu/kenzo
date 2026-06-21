@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { extractJson } from '@/lib/ai-prompt'
 
 const PLANNER_PROMPT = `You are a funnel strategist who has built hundreds of high-ticket coaching/reselling/agency funnels converting at 3-8%. You know which sections work for which offer types.
 
@@ -93,12 +94,7 @@ Choose the best sections for this specific funnel and generate follow-up questio
     const data = await res.json()
     const responseText = data.choices?.[0]?.message?.content || ''
 
-    let cleanText = responseText.trim()
-    if (cleanText.includes('```json')) {
-      cleanText = cleanText.split('```json')[1].split('```')[0].trim()
-    } else if (cleanText.includes('```')) {
-      cleanText = cleanText.split('```')[1].split('```')[0].trim()
-    }
+    const cleanText = extractJson(responseText)
 
     const parsed = JSON.parse(cleanText)
 

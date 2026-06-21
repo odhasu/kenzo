@@ -45,17 +45,99 @@ const VALID_THEMES: Set<string> = new Set([
   'dark-green', 'dark-minimal', 'light-clean', 'light-blue',
 ])
 
+function sanitizeProps(type: string, raw: unknown): Record<string, unknown> {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+
+  switch (type) {
+    case 'ic-hero':
+      return {
+        badge: typeof p.badge === 'string' ? p.badge : '',
+        headline: typeof p.headline === 'string' ? p.headline : '',
+        subtext: typeof p.subtext === 'string' ? p.subtext : '',
+        ctaLabel: typeof p.ctaLabel === 'string' ? p.ctaLabel : '',
+        ctaHref: typeof p.ctaHref === 'string' ? p.ctaHref : '',
+      }
+    case 'ic-ticker':
+      return {
+        items: Array.isArray(p.items) ? p.items.filter((i: unknown) => typeof i === 'string') : [],
+      }
+    case 'ic-cards':
+      return {
+        headline: typeof p.headline === 'string' ? p.headline : '',
+        cards: Array.isArray(p.cards)
+          ? p.cards.filter((c: unknown): c is Record<string, unknown> => typeof c === 'object' && c !== null).map((c) => ({
+              title: typeof c.title === 'string' ? c.title : '',
+              desc: typeof c.desc === 'string' ? c.desc : '',
+              bullets: Array.isArray(c.bullets) ? c.bullets.filter((b: unknown) => typeof b === 'string') : [],
+            }))
+          : [],
+        ctaLabel: typeof p.ctaLabel === 'string' ? p.ctaLabel : '',
+        ctaHref: typeof p.ctaHref === 'string' ? p.ctaHref : '',
+      }
+    case 'ic-faq':
+      return {
+        headline: typeof p.headline === 'string' ? p.headline : '',
+        items: Array.isArray(p.items)
+          ? p.items.filter((i: unknown): i is Record<string, unknown> => typeof i === 'object' && i !== null).map((i) => ({
+              q: typeof i.q === 'string' ? i.q : '',
+              a: typeof i.a === 'string' ? i.a : '',
+            }))
+          : [],
+      }
+    case 'ic-apply':
+      return {
+        headline: typeof p.headline === 'string' ? p.headline : '',
+        subtext: typeof p.subtext === 'string' ? p.subtext : '',
+      }
+    case 'ic-cta':
+      return {
+        label: typeof p.label === 'string' ? p.label : '',
+        href: typeof p.href === 'string' ? p.href : '',
+        subtext: typeof p.subtext === 'string' ? p.subtext : '',
+      }
+    case 'ic-results':
+      return {
+        headline: typeof p.headline === 'string' ? p.headline : '',
+        photos: Array.isArray(p.photos) ? p.photos.filter((ph: unknown) => typeof ph === 'string') : [],
+      }
+    case 'form':
+      return {
+        fields: Array.isArray(p.fields)
+          ? p.fields.filter((f: unknown) => typeof f === 'string' && ['email', 'name', 'phone'].includes(f))
+          : ['email'],
+      }
+    case 'heading':
+    case 'text':
+      return { text: typeof p.text === 'string' ? p.text : '' }
+    case 'button':
+      return {
+        label: typeof p.label === 'string' ? p.label : '',
+        href: typeof p.href === 'string' ? p.href : '',
+      }
+    case 'image':
+      return {
+        src: typeof p.src === 'string' ? p.src : '',
+        alt: typeof p.alt === 'string' ? p.alt : '',
+      }
+    default:
+      return {}
+  }
+}
+
 function sanitizeBlocks(blocks: unknown): Block[] {
   if (!Array.isArray(blocks)) return []
   return blocks
     .filter((b): b is Record<string, unknown> => typeof b === 'object' && b !== null)
     .filter(b => typeof b.type === 'string' && VALID_BLOCK_TYPES.has(b.type))
-    .map(b => ({
-      id: typeof b.id === 'string' && b.id.length > 0 ? b.id : crypto.randomUUID(),
-      type: b.type as BlockType,
-      props: (typeof b.props === 'object' && b.props !== null ? b.props : {}) as BlockProps['props'],
-      hidden: typeof b.hidden === 'boolean' ? b.hidden : undefined,
-    })) as Block[]
+    .map(b => {
+      const rawProps = typeof b.props === 'object' && b.props !== null ? b.props : {}
+      return {
+        id: typeof b.id === 'string' && b.id.length > 0 ? b.id : crypto.randomUUID(),
+        type: b.type as BlockType,
+        props: sanitizeProps(b.type as string, rawProps),
+        hidden: typeof b.hidden === 'boolean' ? b.hidden : undefined,
+      }
+    }) as unknown as Block[]
 }
 
 function sanitizeSettings(raw: unknown): FunnelSettings {
@@ -116,6 +198,7 @@ export default function CreatePage() {
   const [saving, setSaving] = useState(false)
   const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [checkingApi, setCheckingApi] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -125,15 +208,25 @@ export default function CreatePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  // ── Check API on mount ────────────────────────────────────────
+  // ── Check auth + API on mount ──────────────────────────────────
   useEffect(() => {
     async function check() {
       setCheckingApi(true)
       try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          setIsAuthenticated(false)
+          setCheckingApi(false)
+          return
+        }
+        setIsAuthenticated(true)
+
+        // Quick API key check — don't send a real message, just hit endpoint
         const res = await fetch('/api/ai/chat-create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: 'test' }], draftBlocks: [], draftSettings: DEFAULT_SETTINGS }),
+          body: JSON.stringify({ messages: [{ role: 'user', content: 'API_KEY_CHECK' }], draftBlocks: [], draftSettings: DEFAULT_SETTINGS }),
         })
         const data = await res.json()
         if (data.error === 'NO_API_KEY') {
@@ -142,7 +235,6 @@ export default function CreatePage() {
           setShowSetupGuide(false)
         }
       } catch {
-        // Can't reach API — might still work, let user try
         setShowSetupGuide(false)
       } finally {
         setCheckingApi(false)
@@ -295,6 +387,34 @@ export default function CreatePage() {
   const isDark = !draftSettings.theme.startsWith('light')
 
   // ── Render ────────────────────────────────────────────────────
+  if (checkingApi) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-white/[0.06] border-t-[#39FF14]" />
+      </div>
+    )
+  }
+
+  if (isAuthenticated === false) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4">
+        <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-[#0a0a0a] p-8 shadow-2xl text-center">
+          <span className="text-4xl">⚡</span>
+          <h2 className="mt-4 text-lg font-bold text-white">Sign in to create a funnel</h2>
+          <p className="mt-2 text-sm text-gray-400">
+            Your funnel drafts are saved to your account. Sign in to start building.
+          </p>
+          <Link
+            href="/login"
+            className="mt-6 block w-full rounded-xl bg-[#39FF14] py-2.5 text-sm font-bold text-black transition hover:bg-[#39FF14]/80"
+          >
+            Sign in
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   if (showSetupGuide && !checkingApi) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black px-4">
