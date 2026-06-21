@@ -5,7 +5,7 @@ import { callAI } from '@/lib/ai-provider'
 
 export async function POST(request: Request) {
   try {
-    const { blocks, settings, prompt, model: reqModel, funnelId } = await request.json()
+    const { blocks, settings, prompt, model: reqModel, funnelId, sessionId } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: 'Missing prompt' }, { status: 400 })
@@ -33,10 +33,36 @@ export async function POST(request: Request) {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          let resolvedSessionId = sessionId || null
+
+          // Auto-create session if none provided
+          if (!resolvedSessionId && funnelId) {
+            const autoTitle = prompt.slice(0, 40) + (prompt.length > 40 ? '…' : '')
+            const { data: newSession } = await supabase
+              .from('chat_sessions')
+              .insert({
+                user_id: user.id,
+                funnel_id: funnelId,
+                title: autoTitle,
+              })
+              .select('id')
+              .single()
+            if (newSession) resolvedSessionId = newSession.id
+          }
+
+          // Update session title to match first user message
+          if (resolvedSessionId) {
+            await supabase
+              .from('chat_sessions')
+              .update({ updated_at: new Date().toISOString() })
+              .eq('id', resolvedSessionId)
+          }
+
           await supabase.from('chat_messages').insert([
             {
               user_id: user.id,
               funnel_id: funnelId || null,
+              session_id: resolvedSessionId,
               console_type: 'editor',
               role: 'user',
               content: prompt,
@@ -44,11 +70,15 @@ export async function POST(request: Request) {
             {
               user_id: user.id,
               funnel_id: funnelId || null,
+              session_id: resolvedSessionId,
               console_type: 'editor',
               role: 'assistant',
               content: parsedData.explanation || 'Page updated successfully!',
             },
           ])
+
+          // Return the session id so the client can persist it
+          if (resolvedSessionId) parsedData._sessionId = resolvedSessionId
         }
       } catch (dbErr) {
         console.error('Failed to save chat message:', dbErr)

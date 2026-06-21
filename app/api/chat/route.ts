@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const funnelId = searchParams.get('funnelId')
+    const sessionId = searchParams.get('sessionId')
     const type = searchParams.get('type')
 
     let query = supabase
@@ -23,6 +24,9 @@ export async function GET(request: Request) {
 
     if (funnelId) {
       query = query.eq('funnel_id', funnelId).eq('console_type', 'editor')
+      if (sessionId) {
+        query = query.eq('session_id', sessionId)
+      }
     } else if (type === 'developer') {
       query = query.eq('console_type', 'developer')
     } else {
