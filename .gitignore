@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# reference clones (never import from these)
+/components/refernces/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

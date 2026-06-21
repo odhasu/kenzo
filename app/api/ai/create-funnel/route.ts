@@ -25,9 +25,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing funnel name or survey answers' }, { status: 400 })
     }
 
-    if (!plannedSections || !Array.isArray(plannedSections) || plannedSections.length === 0) {
-      return NextResponse.json({ error: 'Missing plannedSections (component plan required)' }, { status: 400 })
-    }
+    // Default template if plannedSections not provided
+    const sections = (plannedSections && Array.isArray(plannedSections) && plannedSections.length > 0)
+      ? plannedSections
+      : ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-faq', 'ic-cta']
 
     const deepseekKey = process.env.DEEPSEEK_API_KEY
     if (!deepseekKey) {
@@ -58,7 +59,7 @@ BASE ANSWERS:
 ${followupBlock}
 
 CONSTRAINTS:
-- SECTION ORDER (EXACT): You MUST generate blocks for ONLY these section types, in this exact order: [${plannedSections.join(', ')}]
+- SECTION ORDER (EXACT): You MUST generate blocks for ONLY these section types, in this exact order: [${sections.join(', ')}]
 - Do NOT add, remove, or reorder sections. Generate exactly one block per type in the given order.
 - THEME: "${theme || 'dark-green'}"
 - BACKGROUND: "${background || 'none'}"
