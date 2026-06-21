@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { SYSTEM_PROMPT, extractJson } from '@/lib/ai-prompt'
-import type { BlockType, ThemeId, BackgroundId } from '@/types/blocks'
+import { callAI } from '@/lib/ai-provider'
+import type { ThemeId, BackgroundId } from '@/types/blocks'
 
 export async function POST(request: Request) {
   try {
@@ -29,11 +30,6 @@ export async function POST(request: Request) {
     const sections = (plannedSections && Array.isArray(plannedSections) && plannedSections.length > 0)
       ? plannedSections
       : ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-faq', 'ic-cta']
-
-    const deepseekKey = process.env.DEEPSEEK_API_KEY
-    if (!deepseekKey) {
-      return NextResponse.json({ error: 'NO_API_KEY', message: 'DeepSeek API key is not configured.' }, { status: 400 })
-    }
 
     // 2. Build User Prompt from all answers + constraints
     // Separate base question answers from follow-up answers
@@ -72,39 +68,14 @@ WRITING INSTRUCTIONS:
 - Generate unique UUIDs for each block id.
 - Form fields: include ["email", "name", "phone"] unless the goal suggests otherwise.`
 
-    const baseModel = process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'
-    const model = (baseModel === 'deepseek-v4-pro' || baseModel === 'deepseek-v4-flash')
-      ? 'deepseek-chat'
-      : baseModel
-
-    // 3. Call DeepSeek
-    const res = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${deepseekKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 8192,
-        temperature: 0.3,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3,
-        response_format: { type: 'json_object' }
-      })
+    // 3. Call AI via unified provider
+    const aiResponse = await callAI(userPrompt, {
+      systemPrompt: SYSTEM_PROMPT,
+      jsonMode: true,
+      retries: 1,
     })
 
-    if (!res.ok) {
-      const errText = await res.text()
-      throw new Error(`DeepSeek API error: ${res.status} ${errText}`)
-    }
-
-    const data = await res.json()
-    const responseText = data.choices?.[0]?.message?.content || ''
+    const responseText = aiResponse.text
 
     // Robust JSON extraction — handles fences, truncation, stray prose
     const cleanText = extractJson(responseText)

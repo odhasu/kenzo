@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { SYSTEM_PROMPT, extractJson } from '@/lib/ai-prompt'
 import { DEFAULT_PROPS } from '@/lib/templates'
+import { callAI } from '@/lib/ai-provider'
 import type { Block, BlockType, FunnelSettings } from '@/types/blocks'
 
 const VALID_BLOCK_TYPES: BlockType[] = [
@@ -77,12 +78,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing answers or message' }, { status: 400 })
     }
 
-    const deepseekKey = process.env.DEEPSEEK_API_KEY
-    const aiGatewayKey = process.env.AI_GATEWAY_API_KEY
-    const anthropicKey = process.env.ANTHROPIC_API_KEY
-    const openAiKey = process.env.OPENAI_API_KEY
-    const geminiKey = process.env.GEMINI_API_KEY
-
     // Build context from answers
     let answersBlock = ''
     if (answers) {
@@ -111,141 +106,13 @@ INSTRUCTIONS:
 - Return the COMPLETE blocks array and COMPLETE settings object every time.
 - Include a short explanation of what you changed and why.`
 
-    let responseText = ''
+    const response = await callAI(userPrompt, {
+      systemPrompt: SYSTEM_PROMPT,
+      jsonMode: true,
+      retries: 1,
+    })
 
-    // Provider chain — same pattern as /api/ai
-    if (deepseekKey) {
-      const baseModel = process.env.DEEPSEEK_API_MODEL || 'deepseek-chat'
-      const model = (baseModel === 'deepseek-v4-pro' || baseModel === 'deepseek-v4-flash')
-        ? 'deepseek-chat'
-        : baseModel
-      const res = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${deepseekKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: 8192,
-          temperature: 0.2,
-          frequency_penalty: 0.3,
-          presence_penalty: 0.3,
-          response_format: { type: 'json_object' },
-        }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`DeepSeek API error: ${res.status} ${errText}`)
-      }
-
-      const data = await res.json()
-      responseText = data.choices?.[0]?.message?.content || ''
-    } else if (aiGatewayKey) {
-      const model = process.env.CLYRO_AI_MODEL || 'anthropic/claude-sonnet-4.5'
-      const res = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${aiGatewayKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.2,
-        }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`AI Gateway API error: ${res.status} ${errText}`)
-      }
-
-      const data = await res.json()
-      responseText = data.choices?.[0]?.message?.content || ''
-    } else if (anthropicKey) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 4000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userPrompt }],
-          temperature: 0.2,
-        }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`Anthropic API error: ${res.status} ${errText}`)
-      }
-
-      const data = await res.json()
-      responseText = data.content?.[0]?.text || ''
-    } else if (openAiKey) {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-        }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`OpenAI API error: ${res.status} ${errText}`)
-      }
-
-      const data = await res.json()
-      responseText = data.choices?.[0]?.message?.content || ''
-    } else if (geminiKey) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{ text: `${SYSTEM_PROMPT}\n\n${userPrompt}` }],
-          }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
-        }),
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        throw new Error(`Gemini API error: ${res.status} ${errText}`)
-      }
-
-      const data = await res.json()
-      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    } else {
-      return NextResponse.json(
-        { error: 'NO_API_KEY', message: 'No AI API keys configured.' },
-        { status: 400 },
-      )
-    }
+    const responseText = response.text
 
     // Parse + sanitize
     const cleanText = extractJson(responseText)
