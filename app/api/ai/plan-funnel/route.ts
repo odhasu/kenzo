@@ -2,11 +2,22 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { extractJson } from '@/lib/ai-prompt'
 import { callAI } from '@/lib/ai-provider'
+import { TEMPLATES } from '@/lib/templates'
+
+const TEMPLATE_LIST = Object.values(TEMPLATES).map(t =>
+  `- ${t.id}: "${t.name}" — ${t.description} (archetype: ${t.archetype}, theme: ${t.theme}, sections: [${t.blockOrder.join(', ')}])`
+).join('\n')
 
 const PLANNER_PROMPT = `You are a funnel strategist who has built hundreds of high-ticket coaching/reselling/agency funnels converting at 3-8%. You know which sections work for which offer types.
 
-Given a style archetype and business answers, choose the best ordered set of section component types from this exact allowed list:
-[heading, text, button, image, form, ic-hero, ic-ticker, ic-cards, ic-faq, ic-apply, ic-cta, ic-results]
+Given a style archetype and business answers, you must:
+1. Pick the best TEMPLATE from the library below (return its id).
+2. Choose the best ordered set of section component types.
+
+Allowed section types: [heading, text, button, image, form, ic-hero, ic-ticker, ic-cards, ic-faq, ic-apply, ic-cta, ic-results]
+
+--- TEMPLATE LIBRARY ---
+${TEMPLATE_LIST}
 
 RULES:
 - Always start with ic-hero as the first section.
@@ -18,7 +29,7 @@ RULES:
 - Include ic-apply if the goal is "Apply via form".
 - Include form if the goal is "Direct purchase" or "Book a call".
 - 5-8 sections total. Don't bloat.
-- Keep the archetype as a starting point but adjust based on answers.
+- Pick a template whose theme and archetype match the offer type.
 
 Then ask 3-5 specific follow-up questions about the offer itself. These must be concrete — ask about:
   - What exactly is included (modules, calls, community, bonuses)?
@@ -28,9 +39,9 @@ Then ask 3-5 specific follow-up questions about the offer itself. These must be 
   - Who it's NOT for (disqualify bad-fit customers)
   - Urgency/scarcity (limited spots? deadline? price increase?)
 
-Return JSON only: { "sections": string[], "followupQuestions": [{ "key": string, "question": string }] }
+Return JSON only: { "templateId": string, "sections": string[], "followupQuestions": [{ "key": string, "question": string }] }
 
-Section type array MUST only contain valid types from the allowed list. Follow-up question keys must be kebab-case slugs (e.g. "whats-included", "transformation-timeline").`
+templateId must be one of: ${Object.keys(TEMPLATES).join(', ')}. Section type array MUST only contain valid types. Follow-up question keys must be kebab-case slugs (e.g. "whats-included", "transformation-timeline").`
 
 export async function POST(request: Request) {
   try {
@@ -47,6 +58,7 @@ export async function POST(request: Request) {
 
     const userPrompt = `Style: "${styleName}"
 Archetype starting sections: [${archetypeSections.join(', ')}]
+Available templates: ${Object.keys(TEMPLATES).join(', ')}
 
 Business answers:
 - Name: "${answers.name}"
@@ -57,7 +69,7 @@ Business answers:
 - Goal: "${answers.goal}"
 - Social Proof: "${answers.socialProof}"
 
-Choose the best sections for this specific funnel and generate follow-up questions.`
+Pick the best template from the library, choose the best sections for this specific funnel, and generate follow-up questions.`
 
     const response = await callAI(userPrompt, {
       systemPrompt: PLANNER_PROMPT,
@@ -73,7 +85,10 @@ Choose the best sections for this specific funnel and generate follow-up questio
     const sections = (parsed.sections || []).filter((s: string) => validTypes.includes(s))
     const followupQuestions = parsed.followupQuestions || []
 
-    return NextResponse.json({ sections, followupQuestions })
+    // Validate templateId
+    const templateId = TEMPLATES[parsed.templateId] ? parsed.templateId : 'innercircle'
+
+    return NextResponse.json({ sections, followupQuestions, templateId })
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : 'An unknown error occurred'
     console.error('Plan funnel API error:', err)

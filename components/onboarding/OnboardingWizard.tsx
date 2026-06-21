@@ -10,7 +10,7 @@ import { StepPricing } from './StepPricing'
 import { StepPainPoints } from './StepPainPoints'
 import { FollowUpRound } from './FollowUpRound'
 import { Block, FunnelSettings } from '@/types/blocks'
-import { makeBaseFunnel } from '@/lib/templates'
+import { makeBaseFunnel, makeFunnelFromTemplate, getTemplateByArchetype, TEMPLATES } from '@/lib/templates'
 
 type Phase = 'interview' | 'followup' | 'generating' | 'done'
 type StepKey = 'niche' | 'ideal-client' | 'offer' | 'pricing' | 'pain-points'
@@ -40,14 +40,21 @@ export function OnboardingWizard() {
   // Follow-up questions from AI
   const [followUpQuestions, setFollowUpQuestions] = useState<FollowUpQuestion[]>([])
 
+  // Template selected by AI planner
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('innercircle')
+
   // Funnel generation state
   const [generating, setGenerating] = useState(false)
   const [generatedFunnelId, setGeneratedFunnelId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Preview blocks (for live preview during interview — use base funnel as placeholder)
-  const [previewBlocks] = useState<Block[]>(() => makeBaseFunnel().blocks)
-  const [previewSettings] = useState<FunnelSettings>(() => makeBaseFunnel().settings)
+  // Preview blocks computed from template (or base funnel fallback)
+  const previewTemplate = TEMPLATES[selectedTemplateId] || TEMPLATES['innercircle']
+  const preview = previewTemplate
+    ? makeFunnelFromTemplate(previewTemplate)
+    : makeBaseFunnel()
+  const [previewBlocks] = useState<Block[]>(() => preview.blocks)
+  const [previewSettings] = useState<FunnelSettings>(() => preview.settings)
 
   // Auth check on mount
   useEffect(() => {
@@ -103,6 +110,9 @@ export function OnboardingWizard() {
 
       const data = await res.json()
 
+      if (data.templateId) {
+        setSelectedTemplateId(data.templateId)
+      }
       if (data.followupQuestions && data.followupQuestions.length > 0) {
         setFollowUpQuestions(data.followupQuestions)
       } else {
@@ -156,12 +166,17 @@ export function OnboardingWizard() {
         })
       }
 
-      // Call create-funnel
+      // Call create-funnel with template
       const funnelName = allAnswers.offer_name || allAnswers.niche || 'New Funnel'
+      const template = TEMPLATES[selectedTemplateId]
       const res = await fetch('/api/ai/create-funnel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: { ...allAnswers, name: funnelName } }),
+        body: JSON.stringify({
+          answers: { ...allAnswers, name: funnelName },
+          templateId: selectedTemplateId,
+          plannedSections: template?.blockOrder || [],
+        }),
       })
 
       const data = await res.json()
