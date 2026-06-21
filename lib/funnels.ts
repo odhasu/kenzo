@@ -66,11 +66,15 @@ export async function getFunnelById(id: string) {
   return data
 }
 
-export async function savePage(pageId: string, content: Block[]) {
+import type { FunnelSettings } from '@/types/blocks'
+
+export async function savePage(pageId: string, content: Block[], settings?: FunnelSettings) {
   const supabase = await createClient()
+  const payload: Record<string, unknown> = { content }
+  if (settings !== undefined) payload.settings = settings
   const { error } = await supabase
     .from('pages')
-    .update({ content })
+    .update(payload)
     .eq('id', pageId)
 
   if (error) throw error
@@ -84,4 +88,15 @@ export async function updateFunnelStatus(id: string, status: 'draft' | 'publishe
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function getFunnelSlugById(id: string): Promise<string | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('funnels')
+    .select('slug')
+    .eq('id', id)
+    .single()
+
+  return data?.slug ?? null
 }

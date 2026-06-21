@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { Block, BlockType, FormField, FunnelSettings, ThemeId, BackgroundId } from '@/types/blocks'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { createClient } from '@/lib/supabase/client'
+import { publishFunnel } from '@/lib/actions'
 import { AiBuilderPanel } from './AiBuilderPanel'
 import { BusinessSettingsPanel } from './BusinessSettingsPanel'
+import { CanvasErrorBoundary } from './CanvasErrorBoundary'
 import { resolveTokens, THEME_PRESETS } from '@/lib/themes'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import { DEFAULT_PROPS } from '@/lib/templates'
@@ -44,14 +45,17 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   initialSettings: FunnelSettings
   funnel: Funnel
 }) {
-  const router = useRouter()
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks)
   const [settings, setSettings] = useState<FunnelSettings>(initialSettings)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
   const [status, setStatus] = useState(funnel.status)
+  const [copied, setCopied] = useState(false)
+  const hasUnsaved = useRef(false)
   const [leftTab, setLeftTab] = useState<'add' | 'layers'>('layers')
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'business' | 'ai'>(() => {
@@ -69,23 +73,86 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const save = useCallback((updatedBlocks: Block[], updatedSettings?: FunnelSettings) => {
+    hasUnsaved.current = true
+    setSavedAt(null)
+    setSaveError(null)
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       setSaving(true)
-      const supabase = createClient()
-      await supabase.from('pages').update({
-        content: updatedBlocks,
-        settings: updatedSettings ?? settings,
-      }).eq('id', pageId)
-      setSaving(false)
-      setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+      try {
+        const supabase = createClient()
+        const payload: Record<string, unknown> = { content: updatedBlocks }
+        if (updatedSettings !== undefined) payload.settings = updatedSettings
+        const { error } = await supabase.from('pages').update(payload).eq('id', pageId)
+        if (error) throw error
+        setSaveError(null)
+        setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        hasUnsaved.current = false
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Save failed'
+        setSaveError(msg)
+        // Retry once after 1.5s
+        setTimeout(async () => {
+          try {
+            const supabase = createClient()
+            const payload: Record<string, unknown> = { content: updatedBlocks }
+            if (updatedSettings !== undefined) payload.settings = updatedSettings
+            const { error } = await supabase.from('pages').update(payload).eq('id', pageId)
+            if (error) throw error
+            setSaveError(null)
+            setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+            hasUnsaved.current = false
+          } catch (retryErr: unknown) {
+            const retryMsg = retryErr instanceof Error ? retryErr.message : 'Save failed after retry'
+            setSaveError(`Save failed — ${retryMsg}`)
+          }
+        }, 1500)
+      } finally {
+        setSaving(false)
+      }
     }, 800)
-  }, [pageId, settings])
+  }, [pageId])
+
+  function forceSave() {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    setSavedAt(null)
+    setSaveError(null)
+    setSaving(true)
+    const currentBlocks = blocks
+    const currentSettings = settings
+    const doSave = async () => {
+      try {
+        const supabase = createClient()
+        const payload: Record<string, unknown> = { content: currentBlocks, settings: currentSettings }
+        const { error } = await supabase.from('pages').update(payload).eq('id', pageId)
+        if (error) throw error
+        setSaveError(null)
+        setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        hasUnsaved.current = false
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Save failed'
+        setSaveError(msg)
+      } finally {
+        setSaving(false)
+      }
+    }
+    doSave()
+  }
 
   // ── Block ops ─────────────────────────────────────────────────────────────
 
+  function sanitizeBlock(block: Block): Block {
+    const defaults = DEFAULT_PROPS[block.type]
+    if (!defaults) return block // unknown type, leave as-is
+    // Merge defaults under block props so missing fields are filled
+    const safeProps = { ...defaults, ...block.props }
+    return { ...block, props: safeProps } as Block
+  }
+
   function addBlock(type: BlockType) {
-    const block = { id: crypto.randomUUID(), type, props: DEFAULT_PROPS[type] } as Block
+    const defaults = DEFAULT_PROPS[type]
+    if (!defaults) return
+    const block = sanitizeBlock({ id: crypto.randomUUID(), type, props: { ...defaults } } as Block)
     const updated = [...blocks, block]
     setBlocks(updated)
     setSelectedId(block.id)
@@ -178,12 +245,35 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
 
   async function togglePublish() {
     setPublishing(true)
-    const supabase = createClient()
-    const next = status === 'published' ? 'draft' : 'published'
-    await supabase.from('funnels').update({ status: next }).eq('id', funnel.id)
-    setStatus(next)
-    setPublishing(false)
-    router.refresh()
+    setPublishError(null)
+    try {
+      const next = status === 'published' ? 'draft' : 'published'
+      const result = await publishFunnel(funnel.id, funnel.slug, next)
+      setStatus(result.status)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Publish failed'
+      setPublishError(msg)
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  function copyLiveUrl() {
+    const url = `${window.location.origin}/f/${funnel.slug}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea')
+      ta.value = url
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   // ── Canvas CSS vars ───────────────────────────────────────────────────────
@@ -195,7 +285,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", overflow: 'hidden' }}>
 
       {/* ── HEADER ────────────────────────────────────────────────── */}
-      <header style={{ height: '48px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(10,10,10,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 20 }}>
+      <header style={{ minHeight: '48px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(10,10,10,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 20, flexWrap: 'wrap', gap: '6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link href="/dashboard" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', padding: '4px 8px', borderRadius: '6px' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
@@ -208,15 +298,94 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
             {status}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.25)' }}>
-            {saving ? 'Saving…' : savedAt ? `Saved ${savedAt}` : ''}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Save status */}
+          <span style={{ fontSize: '11px', fontWeight: 500 }}>
+            {saveError ? (
+              <span style={{ color: '#ef4444' }} title={saveError}>
+                {saveError.includes('retry') ? '⚠ Save failed — retry' : '⚠ Save failed'}
+              </span>
+            ) : saving ? (
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Saving…</span>
+            ) : savedAt ? (
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Saved {savedAt}</span>
+            ) : hasUnsaved.current ? (
+              <span style={{ color: 'rgba(255,200,50,0.6)' }}>Unsaved changes</span>
+            ) : (
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>Saved</span>
+            )}
           </span>
-          {status === 'published' && (
-            <a href={`/f/${funnel.slug}`} target="_blank" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              View live ↗
-            </a>
+
+          {/* Explicit Save button */}
+          <button
+            onClick={forceSave}
+            disabled={saving}
+            title="Save now (Ctrl+S)"
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              padding: '5px 12px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: saving ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.06)',
+              color: saving ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.6 : 1,
+              fontFamily: 'inherit',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+
+          {/* Publish error */}
+          {publishError && (
+            <span style={{ fontSize: '11px', color: '#ef4444' }} title={publishError}>
+              ⚠ Publish failed
+            </span>
           )}
+
+          {/* Live URL + copy for published funnels */}
+          {status === 'published' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px', paddingLeft: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: "'SF Mono', 'Fira Code', monospace", maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                /f/{funnel.slug}
+              </span>
+              <button
+                onClick={copyLiveUrl}
+                title="Copy live URL"
+                style={{
+                  fontSize: '10px',
+                  padding: '3px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: copied ? 'rgba(57,255,20,0.12)' : 'transparent',
+                  color: copied ? '#39FF14' : 'rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: copied ? 700 : 500,
+                }}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              <a
+                href={`/f/${funnel.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '10px',
+                  padding: '3px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.4)',
+                  textDecoration: 'none',
+                }}
+              >
+                ↗
+              </a>
+            </div>
+          )}
+
+          {/* Publish / Unpublish toggle */}
           <button onClick={togglePublish} disabled={publishing} style={{ fontSize: '13px', fontWeight: 700, padding: '6px 16px', borderRadius: '8px', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1, background: status === 'published' ? 'rgba(255,255,255,0.08)' : settings.accentColor || '#39FF14', color: status === 'published' ? '#fff' : '#000' }}>
             {publishing ? '…' : status === 'published' ? 'Unpublish' : 'Publish'}
           </button>
@@ -302,32 +471,34 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
           style={{ flex: 1, overflowY: 'auto', background: isDark ? '#0a0a0a' : '#1a1a1a', padding: isDark ? '0' : '32px 24px', display: 'flex', justifyContent: 'center' }}
           onClick={() => setSelectedId(null)}
         >
-          <div style={{ width: '100%', maxWidth: isDark ? '100%' : '680px', ...canvasVars }}>
-            {visibleBlocks.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100%', height: '100%', color: 'rgba(255,255,255,0.25)', fontSize: '14px', gap: '8px', padding: '80px 24px' }}>
-                <span style={{ fontSize: '28px' }}>⚡</span>
-                <span>Add a section from the left sidebar</span>
-              </div>
-            ) : isDark ? (
-              <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
-                <FunnelBackground background={settings.background} accent={settings.accentColor} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  {visibleBlocks.map((block, i) => (
-                    <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
-                  ))}
+          <CanvasErrorBoundary>
+            <div style={{ width: '100%', maxWidth: isDark ? '100%' : '680px', ...canvasVars }}>
+              {visibleBlocks.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100%', height: '100%', color: 'rgba(255,255,255,0.25)', fontSize: '14px', gap: '8px', padding: '80px 24px' }}>
+                  <span style={{ fontSize: '28px' }}>⚡</span>
+                  <span>Add a section from the left sidebar</span>
                 </div>
-              </div>
-            ) : (
-              <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
-                <FunnelBackground background={settings.background} accent={settings.accentColor} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  {visibleBlocks.map((block, i) => (
-                    <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
-                  ))}
+              ) : isDark ? (
+                <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
+                  <FunnelBackground background={settings.background} accent={settings.accentColor} />
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    {visibleBlocks.map((block, i) => (
+                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
+                  <FunnelBackground background={settings.background} accent={settings.accentColor} />
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    {visibleBlocks.map((block, i) => (
+                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CanvasErrorBoundary>
         </main>
 
         {/* ── PROPERTIES PANEL ────────────────────────────────────── */}
