@@ -187,7 +187,7 @@ export default function CreatePage() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hey! I build high-converting funnels for coaches, course creators, and agency owners. What do you sell, and who's it for?",
+      content: "Hey! I build high-converting funnels for coaches, course creators, and agency owners. What do you sell, and who's it for? I'll build a first draft, then we'll dial in the style together.",
     },
   ])
   const [draftBlocks, setDraftBlocks] = useState<Block[]>([])
