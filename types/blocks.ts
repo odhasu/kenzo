@@ -73,7 +73,7 @@ export type BlockProps =
   | { type: 'ic-cta';     props: IcCtaProps }
   | { type: 'ic-results'; props: IcResultsProps }
 
-export type Block = BlockProps & { id: string }
+export type Block = BlockProps & { id: string; hidden?: boolean }
 
 export interface FunnelSettings {
   theme: ThemeId

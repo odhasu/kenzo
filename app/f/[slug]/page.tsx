@@ -49,6 +49,7 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
   if (!data) notFound()
 
   const { settings, blocks } = data
+  const visibleBlocks = blocks.filter(b => !b.hidden)
   const tokens = resolveTokens(settings)
   const isDark = !settings.theme.startsWith('light')
 
@@ -89,13 +90,13 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
 
         {isDark ? (
           <div style={{ position: 'relative', zIndex: 1 }}>
-            {blocks.map((block) => (
+            {visibleBlocks.map((block) => (
               <BlockRenderer key={block.id} block={block} settings={settings} />
             ))}
           </div>
         ) : (
           <main style={{ maxWidth: '800px', margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 1 }}>
-            {blocks.map((block) => (
+            {visibleBlocks.map((block) => (
               <BlockRenderer key={block.id} block={block} settings={settings} />
             ))}
           </main>

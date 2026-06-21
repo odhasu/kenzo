@@ -101,6 +101,8 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [status, setStatus] = useState(funnel.status)
+  const [leftTab, setLeftTab] = useState<'add' | 'layers'>('layers')
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'ai'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
@@ -162,6 +164,59 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
     save(updated)
   }
 
+  function moveBlockTo(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= blocks.length || toIndex >= blocks.length) return
+    const updated = [...blocks]
+    const [moved] = updated.splice(fromIndex, 1)
+    updated.splice(toIndex, 0, moved)
+    setBlocks(updated)
+    save(updated)
+  }
+
+  function duplicateBlock(id: string) {
+    const idx = blocks.findIndex(b => b.id === id)
+    if (idx === -1) return
+    const source = blocks[idx]
+    const cloned: Block = { id: crypto.randomUUID(), type: source.type, props: JSON.parse(JSON.stringify(source.props)), hidden: source.hidden }
+    const updated = [...blocks.slice(0, idx + 1), cloned, ...blocks.slice(idx + 1)]
+    setBlocks(updated)
+    setSelectedId(cloned.id)
+    save(updated)
+  }
+
+  function toggleBlockHidden(id: string) {
+    const updated = blocks.map(b => b.id === id ? { ...b, hidden: !b.hidden } as Block : b)
+    setBlocks(updated)
+    save(updated)
+  }
+
+  // ── Drag and drop ─────────────────────────────────────────────────────────
+
+  function handleDragStart(e: React.DragEvent, idx: number) {
+    setDragIndex(idx)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(idx))
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDrop(e: React.DragEvent, toIdx: number) {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== toIdx) {
+      moveBlockTo(dragIndex, toIdx)
+    }
+    setDragIndex(null)
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null)
+  }
+
+  const visibleBlocks = blocks.filter(b => !b.hidden)
+
   function updateSettings(patch: Partial<FunnelSettings>) {
     const updated = { ...settings, ...patch }
     setSettings(updated)
@@ -221,26 +276,74 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── LEFT SIDEBAR ────────────────────────────────────────── */}
-        <aside style={{ width: '220px', flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.07)', background: '#111', overflowY: 'auto', padding: '16px 12px' }}>
+        <aside style={{ width: '220px', flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.07)', background: '#111', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          <SidebarGroup label="Sections" items={SECTIONS} onAdd={addBlock} />
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
-          <SidebarGroup label="Elements" items={ELEMENTS} onAdd={addBlock} />
+          {/* Tabs header */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+            <button
+              onClick={() => setLeftTab('add')}
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                color: leftTab === 'add' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                padding: '14px 0',
+                borderBottom: leftTab === 'add' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+              }}
+            >
+              Add
+            </button>
+            <button
+              onClick={() => setLeftTab('layers')}
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                color: leftTab === 'layers' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                padding: '14px 0',
+                borderBottom: leftTab === 'layers' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+              }}
+            >
+              Layers
+            </button>
+          </div>
 
-          {blocks.length > 0 && (
-            <>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
-              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '10px', paddingLeft: '4px' }}>Layers</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {blocks.map((block, i) => (
-                  <button key={block.id} onClick={() => setSelectedId(block.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '6px', border: `1px solid ${selectedId === block.id ? `${settings.accentColor || '#39FF14'}4D` : 'transparent'}`, background: selectedId === block.id ? `${settings.accentColor || '#39FF14'}12` : 'transparent', color: selectedId === block.id ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.5)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', width: '14px', flexShrink: 0 }}>{i + 1}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>{block.type.replace('ic-', '')}</span>
-                  </button>
-                ))}
+          {/* Tab body */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
+            {leftTab === 'add' ? (
+              <>
+                <SidebarGroup label="Sections" items={SECTIONS} onAdd={addBlock} />
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
+                <SidebarGroup label="Elements" items={ELEMENTS} onAdd={addBlock} />
+              </>
+            ) : blocks.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '24px 8px', color: 'rgba(255,255,255,0.2)', fontSize: '12px', textAlign: 'center' }}>
+                <span style={{ fontSize: '22px' }}>⚡</span>
+                <span>No blocks yet.<br />Switch to Add tab to add sections.</span>
               </div>
-            </>
-          )}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {blocks.map((block, i) => {
+                  const sel = selectedId === block.id
+                  return <LayerRow key={block.id} block={block} index={i} total={blocks.length} selected={sel} hidden={block.hidden ?? false} accent={settings.accentColor || '#39FF14'} dragActive={dragIndex === i} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} onDuplicate={() => duplicateBlock(block.id)} onToggleHidden={() => toggleBlockHidden(block.id)} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} onDragEnd={handleDragEnd} />
+                })}
+              </div>
+            )}
+          </div>
         </aside>
 
         {/* ── CANVAS ──────────────────────────────────────────────── */}
@@ -249,7 +352,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
           onClick={() => setSelectedId(null)}
         >
           <div style={{ width: '100%', maxWidth: isDark ? '100%' : '680px', ...canvasVars }}>
-            {blocks.length === 0 ? (
+            {visibleBlocks.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100%', height: '100%', color: 'rgba(255,255,255,0.25)', fontSize: '14px', gap: '8px', padding: '80px 24px' }}>
                 <span style={{ fontSize: '28px' }}>⚡</span>
                 <span>Add a section from the left sidebar</span>
@@ -258,8 +361,8 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
                 <FunnelBackground background={settings.background} accent={settings.accentColor} />
                 <div style={{ position: 'relative', zIndex: 1 }}>
-                  {blocks.map((block, i) => (
-                    <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                  {visibleBlocks.map((block, i) => (
+                    <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
                   ))}
                 </div>
               </div>
@@ -267,8 +370,8 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
                 <FunnelBackground background={settings.background} accent={settings.accentColor} />
                 <div style={{ position: 'relative', zIndex: 1 }}>
-                  {blocks.map((block, i) => (
-                    <CanvasBlock key={block.id} block={block} index={i} total={blocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                  {visibleBlocks.map((block, i) => (
+                    <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
                   ))}
                 </div>
               </div>
@@ -372,6 +475,89 @@ function SidebarGroup({ label, items, onAdd }: { label: string; items: { type: B
         ))}
       </div>
     </>
+  )
+}
+
+// ─── Layer row (Shopify-style) ────────────────────────────────────────────────
+
+function LayerRow({ block, index, total, selected, hidden, accent, dragActive, onSelect, onMove, onDelete, onDuplicate, onToggleHidden, onDragStart, onDragOver, onDrop, onDragEnd }: {
+  block: Block; index: number; total: number; selected: boolean; hidden: boolean; accent: string; dragActive: boolean
+  onSelect: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void; onDuplicate: () => void; onToggleHidden: () => void
+  onDragStart: (e: React.DragEvent, idx: number) => void; onDragOver: (e: React.DragEvent, idx: number) => void; onDrop: (e: React.DragEvent, idx: number) => void; onDragEnd: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const typeLabel = block.type.replace('ic-', '').replace('-', ' ')
+  const titleCased = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)
+
+  return (
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onDragOver={(e) => onDragOver(e, index)}
+      onDrop={(e) => onDrop(e, index)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 8px',
+        borderRadius: '6px',
+        border: `1px solid ${dragActive ? `${accent}80` : selected ? `${accent}4D` : 'transparent'}`,
+        borderTop: dragActive ? `2px solid ${accent}` : undefined,
+        background: selected ? `${accent}12` : dragActive ? `${accent}08` : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
+        color: selected ? accent : hidden ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.55)',
+        fontSize: '12px',
+        cursor: 'pointer',
+        transition: 'all 0.1s',
+        position: 'relative',
+      }}
+    >
+      {/* Drag handle */}
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, index)}
+        onDragEnd={onDragEnd}
+        onClick={(e) => e.stopPropagation()}
+        title="Drag to reorder"
+        style={{ flexShrink: 0, cursor: 'grab', color: 'rgba(255,255,255,0.2)', fontSize: '10px', letterSpacing: '1px', padding: '2px 1px', userSelect: 'none', lineHeight: 1 }}
+      >⋮⋮</div>
+
+      {/* Number */}
+      <span style={{ fontSize: '10px', color: hidden ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)', width: '14px', flexShrink: 0, textAlign: 'right' }}>{index + 1}</span>
+
+      {/* Type label */}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, opacity: hidden ? 0.4 : 1 }}>
+        {titleCased}
+      </span>
+
+      {/* Action icons on hover or selected */}
+      <div style={{ display: 'flex', gap: '3px', flexShrink: 0, opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.1s' }}>
+        {/* Eye toggle */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleHidden() }}
+          title={hidden ? 'Show block' : 'Hide block'}
+          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: hidden ? `${accent}18` : 'transparent', color: hidden ? accent : 'rgba(255,255,255,0.35)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+        >
+          {hidden ? '👁' : '👁'}
+        </button>
+        {/* Duplicate */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate() }}
+          title="Duplicate block"
+          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.35)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+        >
+          ⧉
+        </button>
+        {/* Delete */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          title="Delete block"
+          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   )
 }
 
