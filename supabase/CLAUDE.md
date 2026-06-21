@@ -10,7 +10,7 @@ This terminal: Supabase DB only. Migrations, schema, RLS policies.
 | admins       | 003       | admin role list                  | service role only                 |
 | waitlist     | 004       | email waitlist signups           | public INSERT, admin SELECT       |
 | applications | 005       | Inner Circle funnel submissions  | public INSERT, admin SELECT       |
-| chat_messages| 007       | user setup and editor AI chat log | owner manages own rows            |
+| chat_messages| 007       | editor AI chat history (`console_type: 'editor'`) and legacy create chat | owner manages own rows            |
 
 ## Block schema
 `pages.content` is a JSONB array of blocks.

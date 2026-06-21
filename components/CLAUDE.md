@@ -35,8 +35,9 @@ components/
 │   ├── IcCtaBlock.tsx        ic-cta → full-width CTA button (reads CSS vars)
 │   └── IcResultsBlock.tsx    ic-results → photo slider (reads CSS vars)
 │
-├── editor/               ← Block editor (current: basic list editor)
-│   └── BlockEditor.tsx       add/edit/delete/reorder blocks, saves to Supabase
+├── editor/               ← Block + AI editor
+│   ├── EditorLayout.tsx     3-panel editor (sidebar + canvas + properties/AI chat)
+│   └── AiBuilderPanel.tsx   AI chat sidebar — sends blocks+settings+prompt to /api/ai
 │
 ├── _ref-ogresell/        ← REFERENCE ONLY — original OGs Inner Circle components
 │   └── *.tsx                 source truth for innercircle/ — do not import directly
@@ -83,6 +84,7 @@ Each has typed `props`. `FunnelSettings` includes `theme`, colors, font, tickerS
 
 Block editor saves via: `lib/funnels.ts → savePage(pageId, blocks)`
 Auto-save on change (debounced). Supabase client: `lib/supabase/client.ts`
+Default block props shared via `lib/templates.ts` → `DEFAULT_PROPS` (used by both editor `addBlock` and `/create` wizard).
 
 ## Rules
 
