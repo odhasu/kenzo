@@ -7,6 +7,7 @@ import type { Block, BlockType, FormField, FunnelSettings, ThemeId, BackgroundId
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { createClient } from '@/lib/supabase/client'
 import { AiBuilderPanel } from './AiBuilderPanel'
+import { BusinessSettingsPanel } from './BusinessSettingsPanel'
 import { resolveTokens, THEME_PRESETS } from '@/lib/themes'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import { DEFAULT_PROPS } from '@/lib/templates'
@@ -53,7 +54,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const [status, setStatus] = useState(funnel.status)
   const [leftTab, setLeftTab] = useState<'add' | 'layers'>('layers')
   const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'ai'>(() => {
+  const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'business' | 'ai'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       if (params.get('tab') === 'ai') return 'ai'
@@ -354,6 +355,26 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
               {selectedBlock ? 'Properties' : 'Settings'}
             </button>
             <button
+              onClick={() => setRightPanelTab('business')}
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                color: rightPanelTab === 'business' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                padding: '14px 0',
+                borderBottom: rightPanelTab === 'business' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+              }}
+            >
+              Business
+            </button>
+            <button
               onClick={() => setRightPanelTab('ai')}
               style={{
                 flex: 1,
@@ -386,6 +407,8 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
                   onChange={(props) => updateBlock(selectedBlock.id, props)}
                 />
               )
+            ) : rightPanelTab === 'business' ? (
+              <BusinessSettingsPanel />
             ) : (
               <AiBuilderPanel
                 funnelId={funnel.id}
@@ -862,6 +885,7 @@ function PropertiesPanel({ block, onChange }: { block: Block; onChange: (props: 
   const label = (text: string) => <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '6px' }}>{text}</span>
   const wrap = (content: React.ReactNode) => <div style={{ marginBottom: '14px' }}>{content}</div>
   const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '7px 10px', fontSize: '13px', color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+  const selectStyle: React.CSSProperties = { ...inp, cursor: 'pointer' }
   const ta: React.CSSProperties = { ...inp, resize: 'vertical' as const }
 
   const typeLabel = block.type.replace('ic-', '').replace('-', ' ')
@@ -873,18 +897,72 @@ function PropertiesPanel({ block, onChange }: { block: Block; onChange: (props: 
 
       {/* ── Simple elements ──────────────────────────────────────── */}
 
-      {block.type === 'heading' && wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={3} style={ta} /></>)}
+      {block.type === 'heading' && <>
+        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={3} style={ta} /></>)}
+        {wrap(<>{label('Level')}
+          <select value={block.props.level || 'h1'} onChange={e => onChange({ ...block.props, level: e.target.value as 'h1' | 'h2' | 'h3' })} style={selectStyle}>
+            <option value="h1">H1 — Page heading</option>
+            <option value="h2">H2 — Section heading</option>
+            <option value="h3">H3 — Subheading</option>
+          </select>
+        </>)}
+        {wrap(<>{label('Alignment')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['left', 'center', 'right'] as const).map(a => (
+              <button key={a} onClick={() => onChange({ ...block.props, align: a })}
+                style={{
+                  flex: 1, padding: '6px', border: (block.props.align || 'center') === a ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.align || 'center') === a ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.align || 'center') === a ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>{a}</button>
+            ))}
+          </div>
+        </>)}
+      </>}
 
-      {block.type === 'text' && wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={5} style={ta} /></>)}
+      {block.type === 'text' && <>
+        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={5} style={ta} /></>)}
+        {wrap(<>{label('Alignment')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['left', 'center', 'right'] as const).map(a => (
+              <button key={a} onClick={() => onChange({ ...block.props, align: a })}
+                style={{
+                  flex: 1, padding: '6px', border: (block.props.align || 'left') === a ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.align || 'left') === a ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.align || 'left') === a ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+                }}>{a}</button>
+            ))}
+          </div>
+        </>)}
+      </>}
 
       {block.type === 'button' && <>
         {wrap(<>{label('Label')}<input type="text" value={block.props.label} onChange={e => onChange({ ...block.props, label: e.target.value })} style={inp} /></>)}
         {wrap(<>{label('URL')}<input type="text" value={block.props.href} onChange={e => onChange({ ...block.props, href: e.target.value })} placeholder="https://..." style={inp} /></>)}
+        {wrap(<>{label('Style')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['filled', 'outline', 'ghost'] as const).map(s => (
+              <button key={s} onClick={() => onChange({ ...block.props, style: s })} style={{ flex: 1, padding: '6px', border: (block.props.style || 'filled') === s ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.style || 'filled') === s ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.style || 'filled') === s ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{s}</button>
+            ))}
+          </div>
+        </>)}
+        {wrap(<>{label('Size')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['sm', 'md', 'lg'] as const).map(s => (
+              <button key={s} onClick={() => onChange({ ...block.props, size: s })} style={{ flex: 1, padding: '6px', border: (block.props.size || 'lg') === s ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.size || 'lg') === s ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.size || 'lg') === s ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>{s}</button>
+            ))}
+          </div>
+        </>)}
       </>}
 
       {block.type === 'image' && <>
         {wrap(<>{label('Image URL')}<input type="text" value={block.props.src} onChange={e => onChange({ ...block.props, src: e.target.value })} placeholder="https://..." style={inp} /></>)}
         {wrap(<>{label('Alt text')}<input type="text" value={block.props.alt} onChange={e => onChange({ ...block.props, alt: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('Fit')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['cover', 'contain', 'fill'] as const).map(f => (
+              <button key={f} onClick={() => onChange({ ...block.props, fit: f })} style={{ flex: 1, padding: '6px', border: (block.props.fit || 'cover') === f ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.fit || 'cover') === f ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.fit || 'cover') === f ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{f}</button>
+            ))}
+          </div>
+        </>)}
+        {wrap(<>{label('Width (CSS)')}<input type="text" value={block.props.width || ''} onChange={e => onChange({ ...block.props, width: e.target.value })} placeholder="e.g. 100% or 400px" style={inp} /></>)}
+        {wrap(<>{label('Height (CSS)')}<input type="text" value={block.props.height || ''} onChange={e => onChange({ ...block.props, height: e.target.value })} placeholder="e.g. auto or 300px" style={inp} /></>)}
       </>}
 
       {block.type === 'form' && wrap(<>{label('Fields')}
@@ -921,24 +999,39 @@ function PropertiesPanel({ block, onChange }: { block: Block; onChange: (props: 
         {wrap(<>{label('Section Headline')}<textarea value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} rows={2} style={ta} /></>)}
         {block.props.cards.map((card, i) => (
           <div key={i} style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Card {i + 1}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Card {i + 1}</p>
+              {block.props.cards.length > 1 && (
+                <button onClick={() => { const cards = block.props.cards.filter((_, idx) => idx !== i); onChange({ ...block.props, cards }) }} style={{ background: 'none', border: 'none', color: 'rgba(255,100,100,0.5)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+              )}
+            </div>
             {wrap(<>{label('Title')}<input type="text" value={card.title} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], title: e.target.value }; onChange({ ...block.props, cards }) }} style={inp} /></>)}
             {wrap(<>{label('Description')}<textarea value={card.desc} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], desc: e.target.value }; onChange({ ...block.props, cards }) }} rows={2} style={ta} /></>)}
+            {wrap(<>{label('Bullets (one per line)')}<textarea value={(card.bullets || []).join('\n')} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], bullets: e.target.value.split('\n').filter(Boolean) }; onChange({ ...block.props, cards }) }} rows={2} style={ta} /></>)}
           </div>
         ))}
+        <button onClick={() => onChange({ ...block.props, cards: [...block.props.cards, { title: 'New card', desc: 'Description.', bullets: [] }] })} style={{ width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', marginBottom: '14px', fontFamily: 'inherit' }}>
+          + Add card
+        </button>
         {wrap(<>{label('CTA Label')}<input type="text" value={block.props.ctaLabel} onChange={e => onChange({ ...block.props, ctaLabel: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('CTA URL')}<input type="text" value={block.props.ctaHref} onChange={e => onChange({ ...block.props, ctaHref: e.target.value })} style={inp} /></>)}
       </>}
 
       {block.type === 'ic-faq' && <>
         {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} style={inp} /></>)}
         {block.props.items.map((item, i) => (
           <div key={i} style={{ marginBottom: '12px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Q{i + 1}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Q{i + 1}</p>
+              {block.props.items.length > 1 && (
+                <button onClick={() => { const items = block.props.items.filter((_, idx) => idx !== i); onChange({ ...block.props, items }) }} style={{ background: 'none', border: 'none', color: 'rgba(255,100,100,0.5)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+              )}
+            </div>
             {wrap(<>{label('Question')}<input type="text" value={item.q} onChange={e => { const items = [...block.props.items]; items[i] = { ...items[i], q: e.target.value }; onChange({ ...block.props, items }) }} style={inp} /></>)}
             {wrap(<>{label('Answer')}<textarea value={item.a} onChange={e => { const items = [...block.props.items]; items[i] = { ...items[i], a: e.target.value }; onChange({ ...block.props, items }) }} rows={3} style={ta} /></>)}
           </div>
         ))}
-        <button onClick={() => onChange({ ...block.props, items: [...block.props.items, { q: 'New question', a: 'Answer here.' }] })} style={{ width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer' }}>
+        <button onClick={() => onChange({ ...block.props, items: [...block.props.items, { q: 'New question', a: 'Answer here.' }] })} style={{ width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
           + Add question
         </button>
       </>}

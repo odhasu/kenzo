@@ -13,10 +13,10 @@ export type SectionSpacing = 'compact' | 'normal' | 'spacious'
 export type ButtonStyle = 'filled' | 'outline' | 'ghost'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
-export interface HeadingProps { text: string }
-export interface TextProps    { text: string }
-export interface ButtonProps  { label: string; href: string }
-export interface ImageProps   { src: string; alt: string }
+export interface HeadingProps { text: string; level?: 'h1' | 'h2' | 'h3'; align?: 'left' | 'center' | 'right' }
+export interface TextProps    { text: string; align?: 'left' | 'center' | 'right' }
+export interface ButtonProps  { label: string; href: string; style?: 'filled' | 'outline' | 'ghost'; size?: ButtonSize }
+export interface ImageProps   { src: string; alt: string; fit?: 'cover' | 'contain' | 'fill'; width?: string; height?: string }
 export interface FormProps    { fields: FormField[] }
 
 export interface IcHeroProps {

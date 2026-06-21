@@ -37,6 +37,12 @@ export default async function DashboardPage() {
                 Funnels
               </Link>
               <Link
+                href="/dashboard/leads"
+                className="text-sm text-gray-500 transition-colors hover:text-black"
+              >
+                Leads
+              </Link>
+              <Link
                 href="/dashboard/train"
                 className="text-sm text-gray-500 transition-colors hover:text-black"
               >
