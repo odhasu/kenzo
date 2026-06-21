@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { CHAT_CREATE_PROMPT } from '@/lib/ai-prompt'
 import type { Block, FunnelSettings } from '@/types/blocks'
 
+export const maxDuration = 300 // seconds — DeepSeek multi-turn can be slow
+export const runtime = 'nodejs'
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()

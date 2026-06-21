@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import type { Block, FunnelSettings } from '@/types/blocks'
+import type { Block, BlockType, BlockProps, FunnelSettings, BackgroundId, ThemeId, LetterSpacing, FontWeight, SectionSpacing, ButtonStyle, ButtonSize } from '@/types/blocks'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { resolveTokens } from '@/lib/themes'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
+import { PreviewErrorBoundary } from '@/components/PreviewErrorBoundary'
 import { DEFAULT_SETTINGS } from '@/types/blocks'
 
 // ═══════════════════════════════════════════
@@ -26,6 +27,73 @@ const SUGGESTIONS = [
   { label: 'Trading mentorship', prompt: 'I offer a $2k forex trading mentorship for people who want to quit their 9-5.' },
   { label: 'Agency lead generation', prompt: 'I run a done-for-you lead generation agency for real estate agents. $1.5k/month retainer.' },
 ]
+
+// ═══════════════════════════════════════════
+// SANITIZE AI RESPONSE — prevent crashes from bad data
+// ═══════════════════════════════════════════
+
+const VALID_BLOCK_TYPES: Set<string> = new Set([
+  'heading', 'text', 'button', 'image', 'form',
+  'ic-hero', 'ic-ticker', 'ic-cards', 'ic-faq', 'ic-apply', 'ic-cta', 'ic-results',
+])
+
+const VALID_BACKGROUNDS: Set<string> = new Set([
+  'none', 'gradient', 'particles', 'grid', 'glow', 'aurora', 'dots', 'noise', 'waves', 'stars',
+])
+
+const VALID_THEMES: Set<string> = new Set([
+  'dark-green', 'dark-minimal', 'light-clean', 'light-blue',
+])
+
+function sanitizeBlocks(blocks: unknown): Block[] {
+  if (!Array.isArray(blocks)) return []
+  return blocks
+    .filter((b): b is Record<string, unknown> => typeof b === 'object' && b !== null)
+    .filter(b => typeof b.type === 'string' && VALID_BLOCK_TYPES.has(b.type))
+    .map(b => ({
+      id: typeof b.id === 'string' && b.id.length > 0 ? b.id : crypto.randomUUID(),
+      type: b.type as BlockType,
+      props: (typeof b.props === 'object' && b.props !== null ? b.props : {}) as BlockProps['props'],
+      hidden: typeof b.hidden === 'boolean' ? b.hidden : undefined,
+    })) as Block[]
+}
+
+function sanitizeSettings(raw: unknown): FunnelSettings {
+  const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+
+  return {
+    theme: (typeof s.theme === 'string' && VALID_THEMES.has(s.theme) ? s.theme : 'dark-green') as ThemeId,
+    accentColor: typeof s.accentColor === 'string' ? s.accentColor : '',
+    bgColor: typeof s.bgColor === 'string' ? s.bgColor : '',
+    textColor: typeof s.textColor === 'string' ? s.textColor : '',
+    font: typeof s.font === 'string' && s.font.length > 0 ? s.font : 'Inter',
+    headingFont: typeof s.headingFont === 'string' ? s.headingFont : '',
+    fontScale: safeNum(s.fontScale, 0.8, 1.2, 1.0),
+    letterSpacing: (typeof s.letterSpacing === 'string' && ['tight', 'normal', 'wide'].includes(s.letterSpacing) ? s.letterSpacing : 'tight') as LetterSpacing,
+    fontWeight: (typeof s.fontWeight === 'string' && ['regular', 'medium', 'bold'].includes(s.fontWeight) ? s.fontWeight : 'bold') as FontWeight,
+    maxWidth: safeNum(s.maxWidth, 600, 1400, 1100),
+    sectionSpacing: (typeof s.sectionSpacing === 'string' && ['compact', 'normal', 'spacious'].includes(s.sectionSpacing) ? s.sectionSpacing : 'normal') as SectionSpacing,
+    borderRadius: safeNum(s.borderRadius, 0, 24, 12),
+    buttonStyle: (typeof s.buttonStyle === 'string' && ['filled', 'outline', 'ghost'].includes(s.buttonStyle) ? s.buttonStyle : 'filled') as ButtonStyle,
+    buttonSize: (typeof s.buttonSize === 'string' && ['sm', 'md', 'lg'].includes(s.buttonSize) ? s.buttonSize : 'lg') as ButtonSize,
+    buttonRadius: safeNum(s.buttonRadius, 0, 50, 12),
+    glowEnabled: typeof s.glowEnabled === 'boolean' ? s.glowEnabled : true,
+    gradientHeadlines: typeof s.gradientHeadlines === 'boolean' ? s.gradientHeadlines : true,
+    glassmorphism: typeof s.glassmorphism === 'boolean' ? s.glassmorphism : false,
+    tickerSpeed: safeNum(s.tickerSpeed, 8, 80, 34),
+    background: (typeof s.background === 'string' && VALID_BACKGROUNDS.has(s.background) ? s.background : 'none') as BackgroundId,
+    pageTitle: typeof s.pageTitle === 'string' ? s.pageTitle : '',
+    faviconUrl: typeof s.faviconUrl === 'string' ? s.faviconUrl : '',
+    ogImage: typeof s.ogImage === 'string' ? s.ogImage : '',
+    pixelId: typeof s.pixelId === 'string' ? s.pixelId : '',
+    customCss: typeof s.customCss === 'string' ? s.customCss : '',
+  }
+}
+
+function safeNum(val: unknown, min: number, max: number, fallback: number): number {
+  if (typeof val !== 'number' || isNaN(val) || !isFinite(val)) return fallback
+  return Math.max(min, Math.min(max, Math.round(val)))
+}
 
 // ═══════════════════════════════════════════
 // COMPONENT
@@ -124,9 +192,9 @@ export default function CreatePage() {
         throw new Error(data.message || 'Something went wrong.')
       }
 
-      // Update funnel state
-      if (data.blocks) setDraftBlocks(data.blocks)
-      if (data.settings) setDraftSettings(data.settings)
+      // Update funnel state — sanitize AI response before setState
+      if (data.blocks) setDraftBlocks(sanitizeBlocks(data.blocks))
+      if (data.settings) setDraftSettings(sanitizeSettings(data.settings))
       if (data.ready) setReady(true)
 
       const assistantMsg: ChatMessage = {
@@ -391,32 +459,34 @@ export default function CreatePage() {
               <p className="text-xs text-white/10">Start chatting to generate a preview.</p>
             </div>
           ) : (
-            <div
-              className="w-full overflow-hidden rounded-lg transition-all"
-              style={{
-                maxWidth: draftSettings.maxWidth || 1100,
-                boxShadow: isDark ? '0 4px 40px rgba(0,0,0,0.5)' : '0 4px 40px rgba(0,0,0,0.15)',
-                ...canvasVars,
-                fontFamily: `'${draftSettings.font}', system-ui, sans-serif`,
-              }}
-            >
+            <PreviewErrorBoundary>
               <div
+                className="w-full overflow-hidden rounded-lg transition-all"
                 style={{
-                  background: draftSettings.bgColor || (isDark ? '#0a0a0a' : '#fff'),
-                  position: 'relative',
-                  minHeight: '400px',
+                  maxWidth: draftSettings.maxWidth || 1100,
+                  boxShadow: isDark ? '0 4px 40px rgba(0,0,0,0.5)' : '0 4px 40px rgba(0,0,0,0.15)',
+                  ...canvasVars,
+                  fontFamily: `'${draftSettings.font}', system-ui, sans-serif`,
                 }}
               >
-                <FunnelBackground background={draftSettings.background} accent={draftSettings.accentColor} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  {draftBlocks.filter(b => !b.hidden).map(block => (
-                    <div key={block.id} style={{ pointerEvents: 'none' }}>
-                      <BlockRenderer block={block} settings={draftSettings} />
-                    </div>
-                  ))}
+                <div
+                  style={{
+                    background: draftSettings.bgColor || (isDark ? '#0a0a0a' : '#fff'),
+                    position: 'relative',
+                    minHeight: '400px',
+                  }}
+                >
+                  <FunnelBackground background={draftSettings.background} accent={draftSettings.accentColor} />
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    {draftBlocks.filter(b => !b.hidden).map(block => (
+                      <div key={block.id} style={{ pointerEvents: 'none' }}>
+                        <BlockRenderer block={block} settings={draftSettings} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </PreviewErrorBoundary>
           )}
         </main>
       </div>

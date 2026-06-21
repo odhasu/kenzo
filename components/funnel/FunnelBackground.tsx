@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import type { BackgroundId } from '@/types/blocks';
 
 // ─── Particle types ───────────────────────────────────────────────────────────
@@ -309,6 +309,51 @@ function StarsBackground() {
   );
 }
 
+// ─── Noise (canvas tile → CSS background-repeat — avoids SVG feTurbulence GPU OOM) ─
+
+function NoiseBackground() {
+  const [tileUrl, setTileUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Render one 128×128 noise tile to canvas, export as data URL, repeat via CSS.
+    // feTurbulence on full-height SVG rect = Chrome tab kill on tall funnels.
+    // A small repeating tile costs the GPU ~nothing regardless of page height.
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const imageData = ctx.createImageData(size, size)
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      const v = Math.random() * 255
+      imageData.data[i] = v
+      imageData.data[i + 1] = v
+      imageData.data[i + 2] = v
+      imageData.data[i + 3] = 40
+    }
+    ctx.putImageData(imageData, 0, 0)
+    setTileUrl(canvas.toDataURL())
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none' as const,
+        opacity: 0.35,
+        ...(tileUrl ? {
+          backgroundImage: `url(${tileUrl})`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '128px 128px',
+        } : {}),
+      }}
+    />
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FunnelBackground({
@@ -456,31 +501,7 @@ export function FunnelBackground({
       );
 
     case 'noise':
-      return (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            pointerEvents: 'none' as const,
-            overflow: 'hidden',
-            opacity: 0.3,
-          }}
-        >
-          <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-            <filter id="funnel-noise">
-              <feTurbulence
-                type="fractalNoise"
-                baseFrequency="0.75"
-                numOctaves="4"
-                stitchTiles="stitch"
-              />
-              <feColorMatrix type="saturate" values="0" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#funnel-noise)" />
-          </svg>
-        </div>
-      );
+      return <NoiseBackground />;
 
     case 'waves':
       return (
