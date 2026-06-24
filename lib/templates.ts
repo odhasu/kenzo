@@ -243,6 +243,65 @@ export const TEMPLATES: Record<string, Template> = {
     theme: 'dark-minimal',
     background: 'none',
   },
+
+  // ── Template projects (from templates/ directory) ────────────────────
+
+  'aidropship': {
+    id: 'aidropship',
+    name: 'AI Dropship',
+    description: 'Dropshipping course funnel — hero, partners, how-it-works, features, founder, stores, CTA. Clone of ai-dropship.com.',
+    archetype: 'application',
+    blockOrder: ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-results', 'ic-cta'],
+    theme: 'dark-green',
+    background: 'none',
+    seedProps: {
+      'ic-hero': {
+        badge: 'MAKE 2026 YOUR BIGGEST YEAR',
+        headline: 'See How Regular People Are Building $5K-$30K/Month High-Ticket Reselling Businesses',
+        subtext: 'The exact system 200+ members use to flip authentic products for profit.',
+        ctaLabel: 'Apply For The Inner Circle ↗',
+        ctaHref: '#apply',
+      },
+    },
+  },
+
+  'fortuneflips': {
+    id: 'fortuneflips',
+    name: 'Fortune Flips',
+    description: 'Reselling mentorship funnel — hero, how-it-works, VSL, value stack, founder, testimonials, application, FAQ. Clone of fortuneflips.com.',
+    archetype: 'application',
+    blockOrder: ['ic-hero', 'ic-cards', 'ic-results', 'ic-faq', 'ic-apply'],
+    theme: 'dark-green',
+    background: 'none',
+    seedProps: {
+      'ic-hero': {
+        badge: 'FREE TRAINING',
+        headline: 'Discover How Students Are Making $5K-$30K/Month Reselling Authentic Products',
+        subtext: 'Watch this free training to learn the exact method our students use.',
+        ctaLabel: 'Watch the Free Training ↗',
+        ctaHref: '#apply',
+      },
+    },
+  },
+
+  'lucasresell': {
+    id: 'lucasresell',
+    name: 'Lucas Resell Waitlist',
+    description: 'Waitlist funnel with testimonials and wins — hero, waitlist form, testimonials, wins, CTA. Clone of inner circle closed page.',
+    archetype: 'waitlist',
+    blockOrder: ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-cta'],
+    theme: 'dark-minimal',
+    background: 'none',
+    seedProps: {
+      'ic-hero': {
+        badge: 'JOIN THE WAITLIST',
+        headline: 'The Inner Circle Is Currently Closed',
+        subtext: 'We\'re not accepting new applications right now, but join the waitlist below to be first in line when spots open up.',
+        ctaLabel: 'Join the Waitlist ↗',
+        ctaHref: '#apply',
+      },
+    },
+  },
 }
 
 /**
