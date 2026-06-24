@@ -2,28 +2,19 @@
 
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import type { Block, BlockType, FormField, FunnelSettings, ThemeId, BackgroundId } from '@/types/blocks'
+import type { Block, BlockType, FormField, FunnelSettings, ThemeId, BackgroundId, BlockStyle, ButtonStyle } from '@/types/blocks'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { createClient } from '@/lib/supabase/client'
 import { publishFunnel } from '@/lib/actions'
 import { AiBuilderPanel } from './AiBuilderPanel'
-import { BusinessSettingsPanel } from './BusinessSettingsPanel'
 import { CanvasErrorBoundary } from './CanvasErrorBoundary'
 import { resolveTokens, THEME_PRESETS } from '@/lib/themes'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import { DEFAULT_PROPS } from '@/lib/templates'
 
-// ─── Sidebar block definitions ────────────────────────────────────────────────
+// ─── Block type definitions ──────────────────────────────────────────────────
 
-const ELEMENTS: { type: BlockType; label: string; icon: string }[] = [
-  { type: 'heading', label: 'Heading', icon: 'H1' },
-  { type: 'text',    label: 'Text',    icon: 'T'  },
-  { type: 'button',  label: 'Button',  icon: '→'  },
-  { type: 'image',   label: 'Image',   icon: '⬜' },
-  { type: 'form',    label: 'Form',    icon: '✉'  },
-]
-
-const SECTIONS: { type: BlockType; label: string; icon: string }[] = [
+const SECTION_TYPES: { type: BlockType; label: string; icon: string }[] = [
   { type: 'ic-hero',    label: 'Hero',    icon: '★' },
   { type: 'ic-ticker',  label: 'Ticker',  icon: '↔' },
   { type: 'ic-cards',   label: 'Cards',   icon: '▦' },
@@ -33,11 +24,19 @@ const SECTIONS: { type: BlockType; label: string; icon: string }[] = [
   { type: 'ic-cta',     label: 'CTA',     icon: '↗' },
 ]
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const ELEMENT_TYPES: { type: BlockType; label: string; icon: string }[] = [
+  { type: 'heading', label: 'Heading', icon: 'H1' },
+  { type: 'text',    label: 'Text',    icon: 'T'  },
+  { type: 'button',  label: 'Button',  icon: '→'  },
+  { type: 'image',   label: 'Image',   icon: '⬜' },
+  { type: 'form',    label: 'Form',    icon: '✉'  },
+]
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Funnel = { id: string; name: string; slug: string; status: string }
 
-// ─── EditorLayout ─────────────────────────────────────────────────────────────
+// ─── EditorLayout ────────────────────────────────────────────────────────────
 
 export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }: {
   pageId: string
@@ -55,17 +54,14 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const [publishError, setPublishError] = useState<string | null>(null)
   const [status, setStatus] = useState(funnel.status)
   const [copied, setCopied] = useState(false)
-  const hasUnsaved = useRef(false)
-  const [leftTab, setLeftTab] = useState<'add' | 'layers'>('layers')
+  const [hasUnsaved, setHasUnsaved] = useState(false)
+  const [rightTab, setRightTab] = useState<'sections' | 'theme'>('sections')
   const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [rightPanelTab, setRightPanelTab] = useState<'settings' | 'business' | 'ai'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('tab') === 'ai') return 'ai'
-    }
-    return 'settings'
-  })
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Undo stack for AI edits ─────────────────────────────────────────────
+  const [undoStack, setUndoStack] = useState<{ blocks: Block[]; settings: FunnelSettings }[]>([])
+  const [canUndo, setCanUndo] = useState(false)
 
   const selectedBlock = blocks.find(b => b.id === selectedId) ?? null
   const isDark = !settings.theme.startsWith('light')
@@ -73,7 +69,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const save = useCallback((updatedBlocks: Block[], updatedSettings?: FunnelSettings) => {
-    hasUnsaved.current = true
+    setHasUnsaved(true)
     setSavedAt(null)
     setSaveError(null)
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -87,11 +83,10 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
         if (error) throw error
         setSaveError(null)
         setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-        hasUnsaved.current = false
+        setHasUnsaved(false)
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Save failed'
         setSaveError(msg)
-        // Retry once after 1.5s
         setTimeout(async () => {
           try {
             const supabase = createClient()
@@ -101,10 +96,9 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
             if (error) throw error
             setSaveError(null)
             setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-            hasUnsaved.current = false
+            setHasUnsaved(false)
           } catch (retryErr: unknown) {
-            const retryMsg = retryErr instanceof Error ? retryErr.message : 'Save failed after retry'
-            setSaveError(`Save failed — ${retryMsg}`)
+            setSaveError(`Save failed — ${retryErr instanceof Error ? retryErr.message : 'Save failed after retry'}`)
           }
         }, 1500)
       } finally {
@@ -128,10 +122,9 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
         if (error) throw error
         setSaveError(null)
         setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-        hasUnsaved.current = false
+        setHasUnsaved(false)
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Save failed'
-        setSaveError(msg)
+        setSaveError(err instanceof Error ? err.message : 'Save failed')
       } finally {
         setSaving(false)
       }
@@ -143,8 +136,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
 
   function sanitizeBlock(block: Block): Block {
     const defaults = DEFAULT_PROPS[block.type]
-    if (!defaults) return block // unknown type, leave as-is
-    // Merge defaults under block props so missing fields are filled
+    if (!defaults) return block
     const safeProps = { ...defaults, ...block.props }
     return { ...block, props: safeProps } as Block
   }
@@ -161,6 +153,12 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
 
   function updateBlock(id: string, props: Block['props']) {
     const updated = blocks.map(b => b.id === id ? { ...b, props } as Block : b)
+    setBlocks(updated)
+    save(updated)
+  }
+
+  function updateBlockStyle(id: string, style: BlockStyle) {
+    const updated = blocks.map(b => b.id === id ? { ...b, style } as Block : b)
     setBlocks(updated)
     save(updated)
   }
@@ -195,7 +193,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
     const idx = blocks.findIndex(b => b.id === id)
     if (idx === -1) return
     const source = blocks[idx]
-    const cloned: Block = { id: crypto.randomUUID(), type: source.type, props: JSON.parse(JSON.stringify(source.props)), hidden: source.hidden }
+    const cloned: Block = { id: crypto.randomUUID(), type: source.type, props: JSON.parse(JSON.stringify(source.props)), hidden: source.hidden, style: source.style ? { ...source.style } : undefined }
     const updated = [...blocks.slice(0, idx + 1), cloned, ...blocks.slice(idx + 1)]
     setBlocks(updated)
     setSelectedId(cloned.id)
@@ -233,12 +231,29 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
     setDragIndex(null)
   }
 
+  // ── Undo ────────────────────────────────────────────────────────────────
+
+  function undoLastAIEdit() {
+    if (undoStack.length === 0) return
+    const snapshot = undoStack[undoStack.length - 1]
+    setUndoStack(prev => prev.slice(0, -1))
+    setCanUndo(undoStack.length > 1)
+    setBlocks(snapshot.blocks)
+    setSettings(snapshot.settings)
+    save(snapshot.blocks, snapshot.settings)
+  }
+
   const visibleBlocks = blocks.filter(b => !b.hidden)
 
   function updateSettings(patch: Partial<FunnelSettings>) {
     const updated = { ...settings, ...patch }
     setSettings(updated)
     save(blocks, updated)
+  }
+
+  function handleBlockClick(blockId: string) {
+    setSelectedId(blockId)
+    setRightTab('sections') // ensure we're on sections tab to see settings
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────
@@ -251,8 +266,7 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
       const result = await publishFunnel(funnel.id, funnel.slug, next)
       setStatus(result.status)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Publish failed'
-      setPublishError(msg)
+      setPublishError(err instanceof Error ? err.message : 'Publish failed')
     } finally {
       setPublishing(false)
     }
@@ -264,7 +278,6 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }).catch(() => {
-      // Fallback
       const ta = document.createElement('textarea')
       ta.value = url
       document.body.appendChild(ta)
@@ -282,19 +295,32 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   const canvasVars = canvasTokens as unknown as React.CSSProperties
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a1a', color: '#ffe', fontFamily: "'Inter', system-ui, sans-serif", overflow: 'hidden' }}>
 
       {/* ── HEADER ────────────────────────────────────────────────── */}
-      <header style={{ minHeight: '48px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(10,10,10,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 20, flexWrap: 'wrap', gap: '6px' }}>
+      <header style={{
+        minHeight: '48px', borderBottom: '1px solid #ffffee14',
+        background: '#1a1a1a', display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 20,
+        flexWrap: 'wrap', gap: '6px',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/dashboard" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', padding: '4px 8px', borderRadius: '6px' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}>
+          <Link href="/dashboard" style={{
+            fontSize: '13px', color: '#ffffeea6', textDecoration: 'none',
+            padding: '4px 8px', borderRadius: '6px', fontFamily: 'inherit',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#ffe' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#ffffeea6' }}>
             ← Dashboard
           </Link>
-          <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{funnel.name}</span>
-          <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '100px', background: status === 'published' ? `${settings.accentColor || '#39FF14'}1F` : 'rgba(255,255,255,0.06)', color: status === 'published' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)', border: `1px solid ${status === 'published' ? `${settings.accentColor || '#39FF14'}40` : 'rgba(255,255,255,0.08)'}` }}>
+          <span style={{ color: '#ffffee14' }}>·</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffe' }}>{funnel.name}</span>
+          <span style={{
+            fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '100px',
+            background: status === 'published' ? '#ffffee0f' : '#ffffee08',
+            color: status === 'published' ? '#6ba0c0' : '#ffffeea6',
+            border: `1px solid ${status === 'published' ? '#ffffee2e' : '#ffffee14'}`,
+          }}>
             {status}
           </span>
         </div>
@@ -302,91 +328,92 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
           {/* Save status */}
           <span style={{ fontSize: '11px', fontWeight: 500 }}>
             {saveError ? (
-              <span style={{ color: '#ef4444' }} title={saveError}>
+              <span style={{ color: 'hsl(0 55% 52%)' }} title={saveError}>
                 {saveError.includes('retry') ? '⚠ Save failed — retry' : '⚠ Save failed'}
               </span>
             ) : saving ? (
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Saving…</span>
+              <span style={{ color: '#ffffeea6' }}>Saving…</span>
             ) : savedAt ? (
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Saved {savedAt}</span>
-            ) : hasUnsaved.current ? (
-              <span style={{ color: 'rgba(255,200,50,0.6)' }}>Unsaved changes</span>
+              <span style={{ color: '#ffffeea6' }}>Saved {savedAt}</span>
+            ) : hasUnsaved ? (
+              <span style={{ color: '#ffffeea6' }}>Unsaved changes</span>
             ) : (
-              <span style={{ color: 'rgba(255,255,255,0.2)' }}>Saved</span>
+              <span style={{ color: '#ffffee2e' }}>Saved</span>
             )}
           </span>
 
-          {/* Explicit Save button */}
+          <button
+            onClick={undoLastAIEdit}
+            disabled={!canUndo}
+            title="Undo last AI edit"
+            style={{
+              fontSize: '12px', fontWeight: 600, padding: '5px 10px', borderRadius: '6px',
+              border: '1px solid #ffffee14', background: canUndo ? '#ffffee0f' : '#ffffee08',
+              color: canUndo ? '#ffffeea6' : '#ffffee2e', cursor: canUndo ? 'pointer' : 'default',
+              opacity: canUndo ? 1 : 0.4, fontFamily: 'inherit',
+            }}
+          >
+            ↶ Undo
+          </button>
+
           <button
             onClick={forceSave}
             disabled={saving}
             title="Save now (Ctrl+S)"
             style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              padding: '5px 12px',
-              borderRadius: '6px',
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: saving ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.06)',
-              color: saving ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? 0.6 : 1,
-              fontFamily: 'inherit',
+              fontSize: '12px', fontWeight: 600, padding: '5px 12px', borderRadius: '6px',
+              border: '1px solid #ffffee14', background: saving ? '#ffffee08' : '#ffffee0f',
+              color: saving ? '#ffffee2e' : '#ffffeea6', cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.6 : 1, fontFamily: 'inherit',
             }}
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
 
-          {/* Publish error */}
           {publishError && (
-            <span style={{ fontSize: '11px', color: '#ef4444' }} title={publishError}>
+            <span style={{ fontSize: '11px', color: 'hsl(0 55% 52%)' }} title={publishError}>
               ⚠ Publish failed
             </span>
           )}
 
-          {/* Live URL + copy for published funnels */}
           {status === 'published' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px', paddingLeft: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: "'SF Mono', 'Fira Code', monospace", maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px',
+              paddingLeft: '8px', borderRadius: '6px', border: '1px solid #ffffee14',
+              background: '#ffffee08',
+            }}>
+              <span style={{
+                fontSize: '11px', color: '#ffffeea6',
+                fontFamily: "'SF Mono', 'Fira Code', monospace",
+                maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
                 /f/{funnel.slug}
               </span>
-              <button
-                onClick={copyLiveUrl}
-                title="Copy live URL"
-                style={{
-                  fontSize: '10px',
-                  padding: '3px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  background: copied ? 'rgba(57,255,20,0.12)' : 'transparent',
-                  color: copied ? '#39FF14' : 'rgba(255,255,255,0.3)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontWeight: copied ? 700 : 500,
-                }}
-              >
+              <button onClick={copyLiveUrl} title="Copy live URL" style={{
+                fontSize: '10px', padding: '3px 6px', borderRadius: '4px',
+                border: '1px solid #ffffee14', background: copied ? '#ffffee0f' : 'transparent',
+                color: copied ? '#6ba0c0' : '#ffffeea6', cursor: 'pointer',
+                fontFamily: 'inherit', fontWeight: copied ? 700 : 500,
+              }}>
                 {copied ? 'Copied' : 'Copy'}
               </button>
-              <a
-                href={`/f/${funnel.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontSize: '10px',
-                  padding: '3px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.4)',
-                  textDecoration: 'none',
-                }}
-              >
+              <a href={`/f/${funnel.slug}`} target="_blank" rel="noopener noreferrer" style={{
+                fontSize: '10px', padding: '3px 6px', borderRadius: '4px',
+                border: '1px solid #ffffee14', color: '#ffffeea6', textDecoration: 'none',
+              }}>
                 ↗
               </a>
             </div>
           )}
 
-          {/* Publish / Unpublish toggle */}
-          <button onClick={togglePublish} disabled={publishing} style={{ fontSize: '13px', fontWeight: 700, padding: '6px 16px', borderRadius: '8px', border: 'none', cursor: publishing ? 'not-allowed' : 'pointer', opacity: publishing ? 0.6 : 1, background: status === 'published' ? 'rgba(255,255,255,0.08)' : settings.accentColor || '#39FF14', color: status === 'published' ? '#fff' : '#000' }}>
+          <button onClick={togglePublish} disabled={publishing} style={{
+            fontSize: '13px', fontWeight: 700, padding: '6px 16px', borderRadius: '8px',
+            border: 'none', cursor: publishing ? 'not-allowed' : 'pointer',
+            opacity: publishing ? 0.6 : 1,
+            background: status === 'published' ? '#ffffee0f' : '#ffe',
+            color: status === 'published' ? '#ffe' : '#1a1a1a',
+            fontFamily: 'inherit',
+          }}>
             {publishing ? '…' : status === 'published' ? 'Unpublish' : 'Publish'}
           </button>
         </div>
@@ -395,104 +422,67 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
       {/* ── BODY ──────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* ── LEFT SIDEBAR ────────────────────────────────────────── */}
-        <aside style={{ width: '220px', flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.07)', background: '#111', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-          {/* Tabs header */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-            <button
-              onClick={() => setLeftTab('add')}
-              style={{
-                flex: 1,
-                background: 'none',
-                border: 'none',
-                color: leftTab === 'add' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                padding: '14px 0',
-                borderBottom: leftTab === 'add' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
+        {/* ── LEFT — Kenzo AI Chat ────────────────────────────────── */}
+        <aside style={{
+          width: '360px', flexShrink: 0, borderRight: '1px solid #ffffee14',
+          background: '#222', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px' }}>
+            <AiBuilderPanel
+              funnelId={funnel.id}
+              blocks={blocks}
+              settings={settings}
+              selectedBlockId={selectedId}
+              onUpdatePage={(newBlocks, newSettings) => {
+                // Snapshot before applying AI edit (for undo)
+                setUndoStack(prev => [...prev, { blocks: [...blocks], settings: { ...settings } }])
+                setCanUndo(true)
+                setBlocks(newBlocks)
+                if (newSettings) setSettings(newSettings)
+                save(newBlocks, newSettings)
               }}
-            >
-              Add
-            </button>
-            <button
-              onClick={() => setLeftTab('layers')}
-              style={{
-                flex: 1,
-                background: 'none',
-                border: 'none',
-                color: leftTab === 'layers' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                padding: '14px 0',
-                borderBottom: leftTab === 'layers' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
-              }}
-            >
-              Layers
-            </button>
-          </div>
-
-          {/* Tab body */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
-            {leftTab === 'add' ? (
-              <>
-                <SidebarGroup label="Sections" items={SECTIONS} onAdd={addBlock} />
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
-                <SidebarGroup label="Elements" items={ELEMENTS} onAdd={addBlock} />
-              </>
-            ) : blocks.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '24px 8px', color: 'rgba(255,255,255,0.2)', fontSize: '12px', textAlign: 'center' }}>
-                <span style={{ fontSize: '22px' }}>⚡</span>
-                <span>No blocks yet.<br />Switch to Add tab to add sections.</span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {blocks.map((block, i) => {
-                  const sel = selectedId === block.id
-                  return <LayerRow key={block.id} block={block} index={i} total={blocks.length} selected={sel} hidden={block.hidden ?? false} accent={settings.accentColor || '#39FF14'} dragActive={dragIndex === i} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} onDuplicate={() => duplicateBlock(block.id)} onToggleHidden={() => toggleBlockHidden(block.id)} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} onDragEnd={handleDragEnd} />
-                })}
-              </div>
-            )}
+            />
           </div>
         </aside>
 
-        {/* ── CANVAS ──────────────────────────────────────────────── */}
+        {/* ── CENTER — Canvas ──────────────────────────────────────── */}
         <main
-          style={{ flex: 1, overflowY: 'auto', background: isDark ? '#0a0a0a' : '#1a1a1a', padding: isDark ? '0' : '32px 24px', display: 'flex', justifyContent: 'center' }}
+          style={{
+            flex: 1, overflowY: 'auto', background: isDark ? '#1a1a1a' : '#1a1a1a',
+            padding: isDark ? '0' : '32px 24px', display: 'flex', justifyContent: 'center',
+          }}
           onClick={() => setSelectedId(null)}
         >
           <CanvasErrorBoundary>
             <div style={{ width: '100%', maxWidth: isDark ? '100%' : '680px', ...canvasVars }}>
               {visibleBlocks.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100%', height: '100%', color: 'rgba(255,255,255,0.25)', fontSize: '14px', gap: '8px', padding: '80px 24px' }}>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center', minHeight: '100%', height: '100%',
+                  color: '#ffffee2e', fontSize: '14px', gap: '8px', padding: '80px 24px',
+                }}>
                   <span style={{ fontSize: '28px' }}>⚡</span>
-                  <span>Add a section from the left sidebar</span>
+                  <span>Add a section from the right panel</span>
                 </div>
               ) : isDark ? (
                 <div style={{ background: settings.bgColor, fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
                   <FunnelBackground background={settings.background} accent={settings.accentColor} />
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     {visibleBlocks.map((block, i) => (
-                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => handleBlockClick(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
                     ))}
                   </div>
                 </div>
               ) : (
-                <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px', fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative' }}>
+                <div style={{
+                  background: '#fff', borderRadius: '12px', overflow: 'hidden',
+                  boxShadow: '0 4px 40px rgba(0,0,0,0.4)', minHeight: '500px',
+                  fontFamily: `'${settings.font}', system-ui, sans-serif`, position: 'relative',
+                }}>
                   <FunnelBackground background={settings.background} accent={settings.accentColor} />
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     {visibleBlocks.map((block, i) => (
-                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
+                      <CanvasBlock key={block.id} block={block} index={i} total={visibleBlocks.length} selected={selectedId === block.id} onSelect={() => handleBlockClick(block.id)} onMove={(dir) => moveBlock(block.id, dir)} onDelete={() => deleteBlock(block.id)} settings={settings} />
                     ))}
                   </div>
                 </div>
@@ -501,96 +491,72 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
           </CanvasErrorBoundary>
         </main>
 
-        {/* ── PROPERTIES PANEL ────────────────────────────────────── */}
-        <aside style={{ width: rightPanelTab === 'ai' ? '420px' : '260px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.07)', background: '#111', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'width 0.25s ease' }}>
-          {/* Tabs header */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+        {/* ── RIGHT — Sections / Theme ──────────────────────────────── */}
+        <aside style={{
+          width: '280px', flexShrink: 0, borderLeft: '1px solid #ffffee14',
+          background: '#222', display: 'flex', flexDirection: 'column', height: '100%',
+          overflow: 'hidden',
+        }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #ffffee14', flexShrink: 0 }}>
             <button
-              onClick={() => setRightPanelTab('settings')}
+              onClick={() => setRightTab('sections')}
               style={{
-                flex: 1,
-                background: 'none',
-                border: 'none',
-                color: rightPanelTab === 'settings' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                padding: '14px 0',
-                borderBottom: rightPanelTab === 'settings' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
+                flex: 1, background: 'none', border: 'none',
+                color: rightTab === 'sections' ? '#ffe' : '#ffffeea6',
+                fontSize: '11px', fontWeight: 700, letterSpacing: '1px',
+                textTransform: 'uppercase', padding: '14px 0',
+                borderBottom: rightTab === 'sections' ? '2px solid #ffe' : '2px solid transparent',
+                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
               }}
             >
-              {selectedBlock ? 'Properties' : 'Settings'}
+              Sections
             </button>
             <button
-              onClick={() => setRightPanelTab('business')}
+              onClick={() => setRightTab('theme')}
               style={{
-                flex: 1,
-                background: 'none',
-                border: 'none',
-                color: rightPanelTab === 'business' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                padding: '14px 0',
-                borderBottom: rightPanelTab === 'business' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
+                flex: 1, background: 'none', border: 'none',
+                color: rightTab === 'theme' ? '#ffe' : '#ffffeea6',
+                fontSize: '11px', fontWeight: 700, letterSpacing: '1px',
+                textTransform: 'uppercase', padding: '14px 0',
+                borderBottom: rightTab === 'theme' ? '2px solid #ffe' : '2px solid transparent',
+                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
               }}
             >
-              Business
-            </button>
-            <button
-              onClick={() => setRightPanelTab('ai')}
-              style={{
-                flex: 1,
-                background: 'none',
-                border: 'none',
-                color: rightPanelTab === 'ai' ? settings.accentColor || '#39FF14' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                padding: '14px 0',
-                borderBottom: rightPanelTab === 'ai' ? `2px solid ${settings.accentColor || '#39FF14'}` : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit',
-              }}
-            >
-              ✦ AI Builder
+              Theme
             </button>
           </div>
 
           {/* Panel body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px' }}>
-            {rightPanelTab === 'settings' ? (
-              !selectedBlock ? (
-                <GlobalSettingsPanel settings={settings} onChange={updateSettings} />
-              ) : (
-                <PropertiesPanel
+            {rightTab === 'sections' ? (
+              selectedBlock ? (
+                <SectionSettingsPanel
                   block={selectedBlock}
-                  onChange={(props) => updateBlock(selectedBlock.id, props)}
+                  onChangeProps={(props) => updateBlock(selectedBlock.id, props)}
+                  onChangeStyle={(style) => updateBlockStyle(selectedBlock.id, style)}
+                  onBack={() => setSelectedId(null)}
+                />
+              ) : (
+                <SectionListPanel
+                  blocks={blocks}
+                  selectedId={selectedId}
+                  accentColor={settings.accentColor}
+                  dragIndex={dragIndex}
+                  onSelect={(id) => setSelectedId(id)}
+                  onAdd={addBlock}
+                  onMove={moveBlock}
+                  onDelete={deleteBlock}
+                  onDuplicate={duplicateBlock}
+                  onToggleHidden={toggleBlockHidden}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onDragEnd={handleDragEnd}
                 />
               )
-            ) : rightPanelTab === 'business' ? (
-              <BusinessSettingsPanel />
             ) : (
-              <AiBuilderPanel
-                funnelId={funnel.id}
-                blocks={blocks}
-                settings={settings}
-                onUpdatePage={(newBlocks, newSettings) => {
-                  setBlocks(newBlocks)
-                  if (newSettings) setSettings(newSettings)
-                  save(newBlocks, newSettings)
-                }}
-              />
+              <GlobalSettingsPanel settings={settings} onChange={updateSettings} />
             )}
           </div>
         </aside>
@@ -599,35 +565,203 @@ export function EditorLayout({ pageId, initialBlocks, initialSettings, funnel }:
   )
 }
 
-// ─── Sidebar group ────────────────────────────────────────────────────────────
+// ─── Section List Panel ──────────────────────────────────────────────────────
 
-function SidebarGroup({ label, items, onAdd }: { label: string; items: { type: BlockType; label: string; icon: string }[]; onAdd: (type: BlockType) => void }) {
+function SectionListPanel({
+  blocks, selectedId, accentColor, dragIndex,
+  onSelect, onAdd, onMove, onDelete, onDuplicate, onToggleHidden,
+  onDragStart, onDragOver, onDrop, onDragEnd,
+}: {
+  blocks: Block[]
+  selectedId: string | null
+  accentColor: string
+  dragIndex: number | null
+  onSelect: (id: string) => void
+  onAdd: (type: BlockType) => void
+  onMove: (id: string, dir: -1 | 1) => void
+  onDelete: (id: string) => void
+  onDuplicate: (id: string) => void
+  onToggleHidden: (id: string) => void
+  onDragStart: (e: React.DragEvent, idx: number) => void
+  onDragOver: (e: React.DragEvent, idx: number) => void
+  onDrop: (e: React.DragEvent, idx: number) => void
+  onDragEnd: () => void
+}) {
+  const [showAdd, setShowAdd] = useState(false)
+
   return (
-    <>
-      <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '10px', paddingLeft: '4px' }}>{label}</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '4px' }}>
-        {items.map(({ type, label: lbl, icon }) => (
-          <button key={type} onClick={() => onAdd(type)}
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '7px', border: '1px solid transparent', background: 'transparent', color: 'rgba(255,255,255,0.65)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', width: '100%' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.65)' }}>
-            <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, flexShrink: 0, color: 'rgba(255,255,255,0.5)' }}>
-              {icon}
-            </span>
-            {lbl}
-          </button>
-        ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <p style={{
+          fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase',
+          color: '#ffffee2e', margin: 0,
+        }}>
+          Sections
+        </p>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          style={{
+            width: '24px', height: '24px', borderRadius: '6px',
+            border: '1px solid #ffffee14', background: 'transparent',
+            color: '#ffffeea6', fontSize: '14px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'inherit', lineHeight: 1,
+          }}
+        >
+          {showAdd ? '−' : '+'}
+        </button>
       </div>
-    </>
+
+      {/* Add panel */}
+      {showAdd && (
+        <div style={{
+          marginBottom: '12px', padding: '10px', borderRadius: '8px',
+          background: '#ffffee08', border: '1px solid #ffffee14',
+        }}>
+          <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffee2e', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Add Section
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {SECTION_TYPES.map(({ type, label, icon }) => (
+              <button
+                key={type}
+                onClick={() => { onAdd(type); setShowAdd(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '7px 10px', borderRadius: '6px',
+                  border: '1px solid transparent', background: 'transparent',
+                  color: '#ffffeea6', fontSize: '12px', cursor: 'pointer',
+                  textAlign: 'left', width: '100%', fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#ffffee0f'
+                  e.currentTarget.style.color = '#ffe'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#ffffeea6'
+                }}
+              >
+                <span style={{
+                  width: '22px', height: '22px', borderRadius: '4px',
+                  background: '#ffffee08', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '10px', flexShrink: 0,
+                }}>
+                  {icon}
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ height: '1px', background: '#ffffee14', margin: '8px 0' }} />
+          <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffee2e', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Add Element
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            {ELEMENT_TYPES.map(({ type, label, icon }) => (
+              <button
+                key={type}
+                onClick={() => { onAdd(type); setShowAdd(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '7px 10px', borderRadius: '6px',
+                  border: '1px solid transparent', background: 'transparent',
+                  color: '#ffffeea6', fontSize: '12px', cursor: 'pointer',
+                  textAlign: 'left', width: '100%', fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#ffffee0f'
+                  e.currentTarget.style.color = '#ffe'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#ffffeea6'
+                }}
+              >
+                <span style={{
+                  width: '22px', height: '22px', borderRadius: '4px',
+                  background: '#ffffee08', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '10px', flexShrink: 0,
+                }}>
+                  {icon}
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section list */}
+      {blocks.length === 0 ? (
+        <div style={{
+          padding: '24px 8px', color: '#ffffee2e', fontSize: '12px',
+          textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px',
+        }}>
+          <span>No sections yet</span>
+          <Link
+            href="/templates"
+            style={{
+              fontSize: '11px', color: '#6ba0c0', textDecoration: 'none',
+              padding: '4px 8px', borderRadius: '4px',
+            }}
+          >
+            Browse templates →
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {blocks.map((block, i) => (
+              <SectionRow
+                key={block.id}
+                block={block}
+                index={i}
+                selected={selectedId === block.id}
+                hidden={block.hidden ?? false}
+                accentColor={accentColor}
+                dragActive={dragIndex === i}
+                onSelect={() => onSelect(block.id)}
+                onMove={(dir) => onMove(block.id, dir)}
+                onDelete={() => onDelete(block.id)}
+                onDuplicate={() => onDuplicate(block.id)}
+                onToggleHidden={() => onToggleHidden(block.id)}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onDragEnd={onDragEnd}
+              />
+            ))}
+          </div>
+          <div style={{ marginTop: '12px' }}>
+            <Link
+              href="/templates"
+              style={{
+                display: 'block', textAlign: 'center', fontSize: '11px',
+                color: '#ffffeea6', textDecoration: 'none',
+                padding: '8px', borderRadius: '6px', border: '1px solid #ffffee14',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#ffe'; e.currentTarget.style.borderColor = '#ffffee2e' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#ffffeea6'; e.currentTarget.style.borderColor = '#ffffee14' }}
+            >
+              Browse templates
+            </Link>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
-// ─── Layer row (Shopify-style) ────────────────────────────────────────────────
+// ─── Section Row ─────────────────────────────────────────────────────────────
 
-function LayerRow({ block, index, total, selected, hidden, accent, dragActive, onSelect, onMove, onDelete, onDuplicate, onToggleHidden, onDragStart, onDragOver, onDrop, onDragEnd }: {
-  block: Block; index: number; total: number; selected: boolean; hidden: boolean; accent: string; dragActive: boolean
-  onSelect: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void; onDuplicate: () => void; onToggleHidden: () => void
-  onDragStart: (e: React.DragEvent, idx: number) => void; onDragOver: (e: React.DragEvent, idx: number) => void; onDrop: (e: React.DragEvent, idx: number) => void; onDragEnd: () => void
+function SectionRow({ block, index, selected, hidden, accentColor, dragActive, onSelect, onMove, onDelete, onDuplicate, onToggleHidden, onDragStart, onDragOver, onDrop, onDragEnd }: {
+  block: Block; index: number; selected: boolean; hidden: boolean; accentColor: string; dragActive: boolean
+  onSelect: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void; onDuplicate: () => void
+  onToggleHidden: () => void
+  onDragStart: (e: React.DragEvent, idx: number) => void; onDragOver: (e: React.DragEvent, idx: number) => void
+  onDrop: (e: React.DragEvent, idx: number) => void; onDragEnd: () => void
 }) {
   const [hovered, setHovered] = useState(false)
   const typeLabel = block.type.replace('ic-', '').replace('-', ' ')
@@ -641,19 +775,12 @@ function LayerRow({ block, index, total, selected, hidden, accent, dragActive, o
       onDragOver={(e) => onDragOver(e, index)}
       onDrop={(e) => onDrop(e, index)}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '6px 8px',
+        display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px',
         borderRadius: '6px',
-        border: `1px solid ${dragActive ? `${accent}80` : selected ? `${accent}4D` : 'transparent'}`,
-        borderTop: dragActive ? `2px solid ${accent}` : undefined,
-        background: selected ? `${accent}12` : dragActive ? `${accent}08` : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
-        color: selected ? accent : hidden ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.55)',
-        fontSize: '12px',
-        cursor: 'pointer',
-        transition: 'all 0.1s',
-        position: 'relative',
+        border: `1px solid ${dragActive ? '#ffffee2e' : selected ? '#ffffee2e' : 'transparent'}`,
+        background: selected ? '#ffffee0f' : dragActive ? '#ffffee08' : hovered ? '#ffffee08' : 'transparent',
+        color: selected ? '#ffe' : hidden ? '#ffffee2e' : '#ffffeea6',
+        fontSize: '12px', cursor: 'pointer', transition: 'all 0.1s', position: 'relative',
       }}
     >
       {/* Drag handle */}
@@ -663,40 +790,63 @@ function LayerRow({ block, index, total, selected, hidden, accent, dragActive, o
         onDragEnd={onDragEnd}
         onClick={(e) => e.stopPropagation()}
         title="Drag to reorder"
-        style={{ flexShrink: 0, cursor: 'grab', color: 'rgba(255,255,255,0.2)', fontSize: '10px', letterSpacing: '1px', padding: '2px 1px', userSelect: 'none', lineHeight: 1 }}
+        style={{
+          flexShrink: 0, cursor: 'grab', color: '#ffffee2e', fontSize: '10px',
+          letterSpacing: '1px', padding: '2px 1px', userSelect: 'none', lineHeight: 1,
+        }}
       >⋮⋮</div>
 
-      {/* Number */}
-      <span style={{ fontSize: '10px', color: hidden ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)', width: '14px', flexShrink: 0, textAlign: 'right' }}>{index + 1}</span>
+      <span style={{
+        fontSize: '10px', color: hidden ? '#ffffee2e' : '#ffffee2e',
+        width: '14px', flexShrink: 0, textAlign: 'right',
+      }}>{index + 1}</span>
 
-      {/* Type label */}
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, opacity: hidden ? 0.4 : 1 }}>
         {titleCased}
       </span>
 
-      {/* Action icons on hover or selected */}
-      <div style={{ display: 'flex', gap: '3px', flexShrink: 0, opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.1s' }}>
-        {/* Eye toggle */}
+      <div style={{
+        display: 'flex', gap: '3px', flexShrink: 0,
+        opacity: hovered || selected ? 1 : 0, transition: 'opacity 0.1s',
+      }}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleHidden() }}
-          title={hidden ? 'Show block' : 'Hide block'}
-          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: hidden ? `${accent}18` : 'transparent', color: hidden ? accent : 'rgba(255,255,255,0.35)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+          title={hidden ? 'Show section' : 'Hide section'}
+          style={{
+            width: '22px', height: '22px', borderRadius: '4px',
+            border: '1px solid #ffffee14',
+            background: hidden ? '#ffffee0f' : 'transparent',
+            color: hidden ? '#ffe' : '#ffffeea6', fontSize: '10px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', padding: 0, lineHeight: 1,
+          }}
         >
-          {hidden ? '👁' : '👁'}
+          {hidden ? '◌' : '👁'}
         </button>
-        {/* Duplicate */}
         <button
           onClick={(e) => { e.stopPropagation(); onDuplicate() }}
-          title="Duplicate block"
-          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.35)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+          title="Duplicate"
+          style={{
+            width: '22px', height: '22px', borderRadius: '4px',
+            border: '1px solid #ffffee14', background: 'transparent',
+            color: '#ffffeea6', fontSize: '10px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', padding: 0, lineHeight: 1,
+          }}
         >
           ⧉
         </button>
-        {/* Delete */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          title="Delete block"
-          style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+          title="Delete"
+          style={{
+            width: '22px', height: '22px', borderRadius: '4px',
+            border: '1px solid rgba(239,68,68,0.3)',
+            background: 'rgba(239,68,68,0.08)',
+            color: 'hsl(0 55% 52%)', fontSize: '10px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', padding: 0, lineHeight: 1,
+          }}
         >
           ✕
         </button>
@@ -705,7 +855,7 @@ function LayerRow({ block, index, total, selected, hidden, accent, dragActive, o
   )
 }
 
-// ─── Canvas block wrapper ─────────────────────────────────────────────────────
+// ─── Canvas Block Wrapper ────────────────────────────────────────────────────
 
 function CanvasBlock({ block, index, total, selected, onSelect, onMove, onDelete, settings }: {
   block: Block; index: number; total: number; selected: boolean
@@ -713,38 +863,395 @@ function CanvasBlock({ block, index, total, selected, onSelect, onMove, onDelete
   settings: FunnelSettings
 }) {
   const [hovered, setHovered] = useState(false)
-  const isSection = block.type.startsWith('ic-')
+
+  // Build per-section style overrides
+  const sectionStyle: Record<string, string | number | undefined> = {}
+  if (block.style) {
+    const s = block.style
+    if (s.bgColor) sectionStyle.backgroundColor = s.bgColor
+    if (s.textColor) sectionStyle.color = s.textColor
+    if (s.accentColor) sectionStyle['--accent'] = s.accentColor
+    if (s.headingFont) sectionStyle['--heading-font'] = s.headingFont
+    if (s.bodyFont) sectionStyle.fontFamily = s.bodyFont
+    if (s.fontScale) sectionStyle['--font-scale'] = String(s.fontScale)
+    if (s.align) sectionStyle.textAlign = s.align
+    if (s.paddingY !== undefined) {
+      sectionStyle.paddingTop = `${s.paddingY}px`
+      sectionStyle.paddingBottom = `${s.paddingY}px`
+    }
+    if (s.borderRadius !== undefined) sectionStyle.borderRadius = `${s.borderRadius}px`
+  }
 
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ position: 'relative', outline: selected ? `2px solid ${settings.accentColor || 'var(--accent)'}` : hovered ? `2px solid ${settings.accentColor || 'var(--accent)'}59` : '2px solid transparent', outlineOffset: '-2px', transition: 'outline 0.1s', cursor: 'pointer' }}
+      style={{
+        position: 'relative',
+        outline: selected ? '2px solid #ffe' : hovered ? '2px solid #ffffee2e' : '2px solid transparent',
+        outlineOffset: '-2px',
+        transition: 'outline 0.1s',
+        cursor: 'pointer',
+        ...sectionStyle,
+      }}
     >
       {(hovered || selected) && (
-        <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '4px', zIndex: 10 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{
+          position: 'absolute', top: '8px', right: '8px',
+          display: 'flex', gap: '4px', zIndex: 10,
+        }}>
           <CtrlBtn onClick={() => onMove(-1)} disabled={index === 0} label="↑" />
           <CtrlBtn onClick={() => onMove(1)} disabled={index === total - 1} label="↓" />
           <CtrlBtn onClick={onDelete} label="✕" danger />
         </div>
       )}
-      <div style={isSection ? {} : { padding: '16px 24px', pointerEvents: 'none' }}>
-        <BlockRenderer block={block} settings={settings} />
-      </div>
+      <BlockRenderer block={block} settings={settings} trusted />
     </div>
   )
 }
 
-function CtrlBtn({ onClick, disabled, label, danger }: { onClick: () => void; disabled?: boolean; label: string; danger?: boolean }) {
+function CtrlBtn({ onClick, disabled, label, danger }: {
+  onClick: () => void; disabled?: boolean; label: string; danger?: boolean
+}) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ width: '28px', height: '28px', borderRadius: '6px', border: `1px solid ${danger ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.2)'}`, background: danger ? 'rgba(239,68,68,0.15)' : 'rgba(0,0,0,0.7)', color: danger ? '#ef4444' : '#fff', fontSize: '11px', fontWeight: 700, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+    <button onClick={onClick} disabled={disabled} style={{
+      width: '28px', height: '28px', borderRadius: '6px',
+      border: `1px solid ${danger ? 'rgba(239,68,68,0.5)' : '#ffffee2e'}`,
+      background: danger ? 'rgba(239,68,68,0.15)' : 'rgba(0,0,0,0.7)',
+      color: danger ? 'hsl(0 55% 52%)' : '#ffe', fontSize: '11px',
+      fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
+      opacity: disabled ? 0.3 : 1, display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(4px)',
+    }}>
       {label}
     </button>
   )
 }
 
-// ─── Global Settings Panel ────────────────────────────────────────────────────
+// ─── Per-Section Settings Panel ──────────────────────────────────────────────
+
+function SectionSettingsPanel({ block, onChangeProps, onChangeStyle, onBack }: {
+  block: Block
+  onChangeProps: (props: Block['props']) => void
+  onChangeStyle: (style: BlockStyle) => void
+  onBack: () => void
+}) {
+  const label = (text: string) => (
+    <span style={{
+      fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px',
+      textTransform: 'uppercase', color: '#ffffee2e',
+      display: 'block', marginBottom: '6px',
+    }}>{text}</span>
+  )
+  const wrap = (content: React.ReactNode) => <div style={{ marginBottom: '14px' }}>{content}</div>
+  const inp: React.CSSProperties = {
+    width: '100%', background: '#00000047', border: '1px solid #ffffee14',
+    borderRadius: '7px', padding: '7px 10px', fontSize: '13px',
+    color: '#ffe', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+  }
+  const ta: React.CSSProperties = { ...inp, resize: 'vertical' as const }
+  const selectStyle: React.CSSProperties = { ...inp, cursor: 'pointer' }
+
+  const typeLabel = block.type.replace('ic-', '').replace('-', ' ')
+  const titleCased = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)
+  const style = block.style || {}
+
+  const FONTS = ['Inter', 'Lora', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat']
+
+  return (
+    <div>
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        style={{
+          background: 'none', border: 'none', color: '#ffffeea6', cursor: 'pointer',
+          fontSize: '12px', padding: '0 0 12px', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', gap: '4px',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#ffe' }}
+        onMouseLeave={e => { e.currentTarget.style.color = '#ffffeea6' }}
+      >
+        ← Back to sections
+      </button>
+
+      <p style={{
+        fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px',
+        textTransform: 'uppercase', color: '#ffffee2e', marginBottom: '16px',
+      }}>
+        {titleCased} Settings
+      </p>
+
+      {/* ── Content Controls ──────────────────────────────────────── */}
+
+      {block.type === 'heading' && <>
+        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChangeProps({ ...block.props, text: e.target.value })} rows={3} style={ta} /></>)}
+        {wrap(<>{label('Level')}
+          <select value={block.props.level || 'h1'} onChange={e => onChangeProps({ ...block.props, level: e.target.value as 'h1' | 'h2' | 'h3' })} style={selectStyle}>
+            <option value="h1">H1 — Page heading</option>
+            <option value="h2">H2 — Section heading</option>
+            <option value="h3">H3 — Subheading</option>
+          </select>
+        </>)}
+      </>}
+
+      {block.type === 'text' && <>
+        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChangeProps({ ...block.props, text: e.target.value })} rows={5} style={ta} /></>)}
+      </>}
+
+      {block.type === 'button' && <>
+        {wrap(<>{label('Label')}<input type="text" value={block.props.label} onChange={e => onChangeProps({ ...block.props, label: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('URL')}<input type="text" value={block.props.href} onChange={e => onChangeProps({ ...block.props, href: e.target.value })} placeholder="https://..." style={inp} /></>)}
+        {wrap(<>{label('Style')}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['filled', 'outline', 'ghost'] as const).map(s => (
+              <button key={s} onClick={() => onChangeProps({ ...block.props, style: s })} style={{
+                flex: 1, padding: '6px', border: (block.props.style || 'filled') === s ? '1px solid #ffffee2e' : '1px solid #ffffee14',
+                borderRadius: '6px', background: (block.props.style || 'filled') === s ? '#ffffee0f' : 'transparent',
+                color: (block.props.style || 'filled') === s ? '#ffe' : '#ffffeea6', fontSize: '10px',
+                cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit',
+              }}>{s}</button>
+            ))}
+          </div>
+        </>)}
+      </>}
+
+      {block.type === 'image' && <>
+        {wrap(<>{label('Image URL')}<input type="text" value={block.props.src} onChange={e => onChangeProps({ ...block.props, src: e.target.value })} placeholder="https://..." style={inp} /></>)}
+        {wrap(<>{label('Alt text')}<input type="text" value={block.props.alt} onChange={e => onChangeProps({ ...block.props, alt: e.target.value })} style={inp} /></>)}
+      </>}
+
+      {block.type === 'form' && wrap(<>{label('Fields')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {(['email', 'name', 'phone'] as FormField[]).map(f => (
+            <label key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#ffffeea6', cursor: 'pointer' }}>
+              <input type="checkbox" checked={block.props.fields.includes(f)} onChange={e => {
+                const fields = e.target.checked ? [...block.props.fields, f] : block.props.fields.filter(x => x !== f)
+                onChangeProps({ ...block.props, fields })
+              }} style={{ accentColor: '#ffe' }} />
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </label>
+          ))}
+        </div>
+      </>)}
+
+      {block.type === 'ic-hero' && <>
+        {wrap(<>{label('Badge')}<input type="text" value={block.props.badge} onChange={e => onChangeProps({ ...block.props, badge: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('Headline')}<textarea value={block.props.headline} onChange={e => onChangeProps({ ...block.props, headline: e.target.value })} rows={4} style={ta} /></>)}
+        {wrap(<>{label('Subtext')}<textarea value={block.props.subtext} onChange={e => onChangeProps({ ...block.props, subtext: e.target.value })} rows={3} style={ta} /></>)}
+        {wrap(<>{label('CTA Label')}<input type="text" value={block.props.ctaLabel} onChange={e => onChangeProps({ ...block.props, ctaLabel: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('CTA URL')}<input type="text" value={block.props.ctaHref} onChange={e => onChangeProps({ ...block.props, ctaHref: e.target.value })} style={inp} /></>)}
+      </>}
+
+      {block.type === 'ic-ticker' && wrap(<>{label('Items (one per line)')}
+        <textarea value={block.props.items.join('\n')} onChange={e => onChangeProps({ ...block.props, items: e.target.value.split('\n').filter(Boolean) })} rows={8} style={ta} />
+      </>)}
+
+      {block.type === 'ic-cards' && <>
+        {wrap(<>{label('Section Headline')}<textarea value={block.props.headline} onChange={e => onChangeProps({ ...block.props, headline: e.target.value })} rows={2} style={ta} /></>)}
+        {block.props.cards.map((card, i) => (
+          <div key={i} style={{ marginBottom: '14px', padding: '12px', background: '#ffffee08', borderRadius: '8px', border: '1px solid #ffffee14' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffee2e', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Card {i + 1}</p>
+              {block.props.cards.length > 1 && (
+                <button onClick={() => {
+                  const cards = block.props.cards.filter((_, idx) => idx !== i)
+                  onChangeProps({ ...block.props, cards })
+                }} style={{ background: 'none', border: 'none', color: 'hsl(0 55% 52%)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+              )}
+            </div>
+            {wrap(<>{label('Title')}<input type="text" value={card.title} onChange={e => {
+              const cards = [...block.props.cards]; cards[i] = { ...cards[i], title: e.target.value }
+              onChangeProps({ ...block.props, cards })
+            }} style={inp} /></>)}
+            {wrap(<>{label('Description')}<textarea value={card.desc} onChange={e => {
+              const cards = [...block.props.cards]; cards[i] = { ...cards[i], desc: e.target.value }
+              onChangeProps({ ...block.props, cards })
+            }} rows={2} style={ta} /></>)}
+            {wrap(<>{label('Bullets (one per line)')}<textarea value={(card.bullets || []).join('\n')} onChange={e => {
+              const cards = [...block.props.cards]; cards[i] = { ...cards[i], bullets: e.target.value.split('\n').filter(Boolean) }
+              onChangeProps({ ...block.props, cards })
+            }} rows={2} style={ta} /></>)}
+          </div>
+        ))}
+        <button onClick={() => onChangeProps({ ...block.props, cards: [...block.props.cards, { title: 'New card', desc: 'Description.', bullets: [] }] })} style={{
+          width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed #ffffee14',
+          background: 'transparent', color: '#ffffeea6', fontSize: '12px', cursor: 'pointer', marginBottom: '14px', fontFamily: 'inherit',
+        }}>
+          + Add card
+        </button>
+        {wrap(<>{label('CTA Label')}<input type="text" value={block.props.ctaLabel} onChange={e => onChangeProps({ ...block.props, ctaLabel: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('CTA URL')}<input type="text" value={block.props.ctaHref} onChange={e => onChangeProps({ ...block.props, ctaHref: e.target.value })} style={inp} /></>)}
+      </>}
+
+      {block.type === 'ic-faq' && <>
+        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChangeProps({ ...block.props, headline: e.target.value })} style={inp} /></>)}
+        {block.props.items.map((item, i) => (
+          <div key={i} style={{ marginBottom: '12px', padding: '10px', background: '#ffffee08', borderRadius: '8px', border: '1px solid #ffffee14' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffee2e', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Q{i + 1}</p>
+              {block.props.items.length > 1 && (
+                <button onClick={() => {
+                  const items = block.props.items.filter((_, idx) => idx !== i)
+                  onChangeProps({ ...block.props, items })
+                }} style={{ background: 'none', border: 'none', color: 'hsl(0 55% 52%)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
+              )}
+            </div>
+            {wrap(<>{label('Question')}<input type="text" value={item.q} onChange={e => {
+              const items = [...block.props.items]; items[i] = { ...items[i], q: e.target.value }
+              onChangeProps({ ...block.props, items })
+            }} style={inp} /></>)}
+            {wrap(<>{label('Answer')}<textarea value={item.a} onChange={e => {
+              const items = [...block.props.items]; items[i] = { ...items[i], a: e.target.value }
+              onChangeProps({ ...block.props, items })
+            }} rows={3} style={ta} /></>)}
+          </div>
+        ))}
+        <button onClick={() => onChangeProps({ ...block.props, items: [...block.props.items, { q: 'New question', a: 'Answer here.' }] })} style={{
+          width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed #ffffee14',
+          background: 'transparent', color: '#ffffeea6', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          + Add question
+        </button>
+      </>}
+
+      {block.type === 'ic-apply' && <>
+        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChangeProps({ ...block.props, headline: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('Subtext')}<textarea value={block.props.subtext} onChange={e => onChangeProps({ ...block.props, subtext: e.target.value })} rows={2} style={ta} /></>)}
+      </>}
+
+      {block.type === 'ic-cta' && <>
+        {wrap(<>{label('Button Label')}<input type="text" value={block.props.label} onChange={e => onChangeProps({ ...block.props, label: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('URL')}<input type="text" value={block.props.href} onChange={e => onChangeProps({ ...block.props, href: e.target.value })} style={inp} /></>)}
+        {wrap(<>{label('Subtext')}<input type="text" value={block.props.subtext} onChange={e => onChangeProps({ ...block.props, subtext: e.target.value })} style={inp} /></>)}
+      </>}
+
+      {block.type === 'ic-results' && <>
+        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChangeProps({ ...block.props, headline: e.target.value })} style={inp} /></>)}
+        {wrap(<>
+          {label('Photo URLs (one per line)')}
+          <textarea value={block.props.photos.join('\n')} onChange={e => onChangeProps({ ...block.props, photos: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })} rows={10} placeholder={'https://example.com/photo1.jpg'} style={ta} />
+        </>)}
+      </>}
+
+      {/* ── Style Overrides ────────────────────────────────────────── */}
+      <div style={{ height: '1px', background: '#ffffee14', margin: '18px 0' }} />
+      <p style={{
+        fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px',
+        textTransform: 'uppercase', color: '#ffffee2e', marginBottom: '12px',
+      }}>
+        Style Overrides
+      </p>
+
+      {wrap(<>
+        {label('Background color')}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input type="color" value={style.bgColor || '#222222'} onChange={e => onChangeStyle({ ...style, bgColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
+          <input type="text" value={style.bgColor || ''} onChange={e => onChangeStyle({ ...style, bgColor: e.target.value || undefined })} placeholder="theme default" style={{ ...inp, flex: 1 }} />
+        </div>
+      </>)}
+
+      {wrap(<>
+        {label('Text color')}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input type="color" value={style.textColor || '#ffffee'} onChange={e => onChangeStyle({ ...style, textColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
+          <input type="text" value={style.textColor || ''} onChange={e => onChangeStyle({ ...style, textColor: e.target.value || undefined })} placeholder="theme default" style={{ ...inp, flex: 1 }} />
+        </div>
+      </>)}
+
+      {wrap(<>
+        {label('Accent color')}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input type="color" value={style.accentColor || '#6ba0c0'} onChange={e => onChangeStyle({ ...style, accentColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
+          <input type="text" value={style.accentColor || ''} onChange={e => onChangeStyle({ ...style, accentColor: e.target.value || undefined })} placeholder="theme default" style={{ ...inp, flex: 1 }} />
+        </div>
+      </>)}
+
+      {wrap(<>
+        {label('Heading font')}
+        <select value={style.headingFont || ''} onChange={e => onChangeStyle({ ...style, headingFont: e.target.value || undefined })} style={selectStyle}>
+          <option value="">Theme default</option>
+          {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </>)}
+
+      {wrap(<>
+        {label('Body font')}
+        <select value={style.bodyFont || ''} onChange={e => onChangeStyle({ ...style, bodyFont: e.target.value || undefined })} style={selectStyle}>
+          <option value="">Theme default</option>
+          {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </>)}
+
+      {wrap(<>
+        {label(`Font scale — ${(style.fontScale || 1.0).toFixed(1)}x`)}
+        <input type="range" min={0.8} max={1.2} step={0.05} value={style.fontScale || 1.0} onChange={e => onChangeStyle({ ...style, fontScale: Number(e.target.value) || undefined })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} />
+      </>)}
+
+      {wrap(<>
+        {label('Text alignment')}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['left', 'center', 'right'] as const).map(a => (
+            <button key={a} onClick={() => onChangeStyle({ ...style, align: a })} style={{
+              flex: 1, padding: '6px', border: (style.align || 'left') === a ? '1px solid #ffffee2e' : '1px solid #ffffee14',
+              borderRadius: '6px', background: (style.align || 'left') === a ? '#ffffee0f' : 'transparent',
+              color: (style.align || 'left') === a ? '#ffe' : '#ffffeea6', fontSize: '10px',
+              cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit',
+            }}>{a}</button>
+          ))}
+        </div>
+      </>)}
+
+      {wrap(<>
+        {label(`Vertical padding — ${style.paddingY ?? 'theme'}px`)}
+        <input type="range" min={0} max={120} step={8} value={style.paddingY ?? 0} onChange={e => {
+          const v = Number(e.target.value)
+          onChangeStyle({ ...style, paddingY: v > 0 ? v : undefined })
+        }} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} />
+      </>)}
+
+      {wrap(<>
+        {label(`Border radius — ${style.borderRadius ?? 'theme'}px`)}
+        <input type="range" min={0} max={24} value={style.borderRadius ?? 0} onChange={e => {
+          const v = Number(e.target.value)
+          onChangeStyle({ ...style, borderRadius: v > 0 ? v : undefined })
+        }} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} />
+      </>)}
+
+      {wrap(<>
+        {label('Button style')}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['filled', 'outline', 'ghost'] as const).map(s => (
+            <button key={s} onClick={() => onChangeStyle({ ...style, buttonStyle: s })} style={{
+              flex: 1, padding: '6px', border: style.buttonStyle === s ? '1px solid #ffffee2e' : '1px solid #ffffee14',
+              borderRadius: '6px', background: style.buttonStyle === s ? '#ffffee0f' : 'transparent',
+              color: style.buttonStyle === s ? '#ffe' : '#ffffeea6', fontSize: '10px',
+              cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit',
+            }}>{s}</button>
+          ))}
+        </div>
+      </>)}
+
+      {/* Reset to theme */}
+      <button
+        onClick={() => onChangeStyle({})}
+        style={{
+          width: '100%', padding: '8px', borderRadius: '7px',
+          border: '1px dashed #ffffee14', background: 'transparent',
+          color: '#ffffeea6', fontSize: '11px', cursor: 'pointer',
+          marginTop: '8px', fontFamily: 'inherit',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#ffe'; e.currentTarget.style.borderColor = '#ffffee2e' }}
+        onMouseLeave={e => { e.currentTarget.style.color = '#ffffeea6'; e.currentTarget.style.borderColor = '#ffffee14' }}
+      >
+        Reset to theme defaults
+      </button>
+    </div>
+  )
+}
+
+// ─── Global Settings Panel (Theme tab) ───────────────────────────────────────
 
 const BGS: { id: BackgroundId; label: string }[] = [
   { id: 'none', label: 'None' },
@@ -759,23 +1266,19 @@ const BGS: { id: BackgroundId; label: string }[] = [
   { id: 'stars', label: 'Stars' },
 ]
 
-const FONTS = ['Inter', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat']
+const FONTS = ['Inter', 'Lora', 'Satoshi', 'DM Sans', 'Poppins', 'Plus Jakarta Sans', 'Space Grotesk', 'Montserrat']
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div
-      onClick={() => onChange(!value)}
-      style={{
-        width: '40px', height: '22px', borderRadius: '11px',
-        background: value ? '#39FF14' : 'rgba(255,255,255,0.1)',
-        cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-      }}
-    >
+    <div onClick={() => onChange(!value)} style={{
+      width: '40px', height: '22px', borderRadius: '11px',
+      background: value ? '#ffe' : '#ffffee14',
+      cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+    }}>
       <div style={{
-        position: 'absolute', top: '3px',
-        left: value ? '21px' : '3px',
+        position: 'absolute', top: '3px', left: value ? '21px' : '3px',
         width: '16px', height: '16px', borderRadius: '50%',
-        background: value ? '#000' : 'rgba(255,255,255,0.4)',
+        background: value ? '#1a1a1a' : '#ffffeea6',
         transition: 'left 0.2s',
       }} />
     </div>
@@ -783,12 +1286,15 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings; onChange: (patch: Partial<FunnelSettings>) => void }) {
-  const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '7px 10px', fontSize: '13px', color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
-  const label = (text: string) => <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '6px' }}>{text}</span>
+  const inp: React.CSSProperties = {
+    width: '100%', background: '#00000047', border: '1px solid #ffffee14',
+    borderRadius: '7px', padding: '7px 10px', fontSize: '13px',
+    color: '#ffe', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+  }
+  const label = (text: string) => <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#ffffee2e', display: 'block', marginBottom: '6px' }}>{text}</span>
   const wrap = (content: React.ReactNode) => <div style={{ marginBottom: '14px' }}>{content}</div>
-  const section = (title: string) => <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', margin: '18px 0 10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>{title}</p>
+  const section = (title: string) => <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#ffffee2e', margin: '18px 0 10px', borderTop: '1px solid #ffffee14', paddingTop: '14px' }}>{title}</p>
 
-  // Resolved values for display when stored field is empty (using theme default)
   const tokens = resolveTokens(settings)
   const resolvedAccent = settings.accentColor || tokens['--accent']
   const resolvedBg = settings.bgColor || tokens['--bg']
@@ -796,9 +1302,6 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
 
   return (
     <div>
-      <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '4px' }}>Site Settings</p>
-      <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', marginBottom: '16px' }}>Click a block to edit it, or configure global settings here.</p>
-
       {/* Theme */}
       {section('Theme')}
       {wrap(<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
@@ -807,24 +1310,19 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
             key={preset.id}
             onClick={() => onChange({ theme: preset.id, accentColor: '', bgColor: '', textColor: '' })}
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '8px 4px',
-              borderRadius: '8px',
-              border: settings.theme === preset.id ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-              background: settings.theme === preset.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              padding: '8px 4px', borderRadius: '8px',
+              border: settings.theme === preset.id ? '1px solid #ffffee2e' : '1px solid #ffffee14',
+              background: settings.theme === preset.id ? '#ffffee0f' : 'transparent',
+              cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
             <div style={{ display: 'flex', gap: '2px' }}>
-              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--bg'], border: '1px solid rgba(255,255,255,0.15)' }} />
-              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--accent'], border: '1px solid rgba(255,255,255,0.15)' }} />
-              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--text'], border: '1px solid rgba(255,255,255,0.15)' }} />
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--bg'], border: '1px solid #ffffee14' }} />
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--accent'], border: '1px solid #ffffee14' }} />
+              <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.cssVars['--text'], border: '1px solid #ffffee14' }} />
             </div>
-            <span style={{ fontSize: '10px', color: settings.theme === preset.id ? '#fff' : 'rgba(255,255,255,0.4)', fontWeight: settings.theme === preset.id ? 700 : 500 }}>
+            <span style={{ fontSize: '10px', color: settings.theme === preset.id ? '#ffe' : '#ffffeea6', fontWeight: settings.theme === preset.id ? 700 : 500 }}>
               {preset.name}
             </span>
           </button>
@@ -833,195 +1331,64 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
 
       {/* Colors */}
       {section('Colors')}
-      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginBottom: '10px', fontStyle: 'italic' }}>Leave empty to use theme default. Fill in to override.</p>
       {wrap(<>
         {label('Accent color')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={resolvedAccent} onChange={e => onChange({ accentColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="color" value={resolvedAccent} onChange={e => onChange({ accentColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
           <input type="text" value={settings.accentColor} onChange={e => onChange({ accentColor: e.target.value })} placeholder={tokens['--accent']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
       {wrap(<>
         {label('Background')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={resolvedBg} onChange={e => onChange({ bgColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="color" value={resolvedBg} onChange={e => onChange({ bgColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
           <input type="text" value={settings.bgColor} onChange={e => onChange({ bgColor: e.target.value })} placeholder={tokens['--bg']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
       {wrap(<>
         {label('Text color')}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input type="color" value={resolvedText} onChange={e => onChange({ textColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }} />
+          <input type="color" value={resolvedText} onChange={e => onChange({ textColor: e.target.value })} style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '6px', border: '1px solid #ffffee14', background: '#00000047', cursor: 'pointer' }} />
           <input type="text" value={settings.textColor} onChange={e => onChange({ textColor: e.target.value })} placeholder={tokens['--text']} style={{ ...inp, flex: 1 }} />
         </div>
       </>)}
 
       {/* Typography */}
       {section('Typography')}
-      {wrap(<>
-        {label('Body font')}
-        <select value={settings.font} onChange={e => onChange({ font: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>
-          {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-      </>)}
-      {wrap(<>
-        {label('Heading font')}
-        <select value={settings.headingFont} onChange={e => onChange({ headingFont: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>
-          <option value="">Same as body</option>
-          {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-      </>)}
+      {wrap(<>{label('Body font')}<select value={settings.font} onChange={e => onChange({ font: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>{FONTS.map(f => <option key={f} value={f}>{f}</option>)}</select></>)}
+      {wrap(<>{label('Heading font')}<select value={settings.headingFont} onChange={e => onChange({ headingFont: e.target.value })} style={{ ...inp, cursor: 'pointer' }}><option value="">Same as body</option>{FONTS.map(f => <option key={f} value={f}>{f}</option>)}</select></>)}
       {wrap(<>
         {label(`Font scale — ${settings.fontScale.toFixed(1)}x`)}
-        <input type="range" min={0.8} max={1.2} step={0.05} value={settings.fontScale} onChange={e => onChange({ fontScale: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
-          <span>0.8x</span><span>1.2x</span>
-        </div>
+        <input type="range" min={0.8} max={1.2} step={0.05} value={settings.fontScale} onChange={e => onChange({ fontScale: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} />
       </>)}
-      {wrap(<>
-        {label('Letter spacing')}
-        <select value={settings.letterSpacing} onChange={e => onChange({ letterSpacing: e.target.value as 'tight' | 'normal' | 'wide' })} style={{ ...inp, cursor: 'pointer' }}>
-          <option value="tight">Tight (-1.8px)</option>
-          <option value="normal">Normal (0px)</option>
-          <option value="wide">Wide (1px)</option>
-        </select>
-      </>)}
-      {wrap(<>
-        {label('Heading weight')}
-        <select value={settings.fontWeight} onChange={e => onChange({ fontWeight: e.target.value as 'regular' | 'medium' | 'bold' })} style={{ ...inp, cursor: 'pointer' }}>
-          <option value="regular">Regular (700)</option>
-          <option value="medium">Medium (800)</option>
-          <option value="bold">Bold (900)</option>
-        </select>
-      </>)}
+      {wrap(<>{label('Letter spacing')}<select value={settings.letterSpacing} onChange={e => onChange({ letterSpacing: e.target.value as 'tight' | 'normal' | 'wide' })} style={{ ...inp, cursor: 'pointer' }}><option value="tight">Tight</option><option value="normal">Normal</option><option value="wide">Wide</option></select></>)}
+      {wrap(<>{label('Heading weight')}<select value={settings.fontWeight} onChange={e => onChange({ fontWeight: e.target.value as 'regular' | 'medium' | 'bold' })} style={{ ...inp, cursor: 'pointer' }}><option value="regular">Regular (700)</option><option value="medium">Medium (800)</option><option value="bold">Bold (900)</option></select></>)}
 
       {/* Layout */}
       {section('Layout')}
-      {wrap(<>
-        {label(`Max width — ${settings.maxWidth}px`)}
-        <input type="range" min={600} max={1400} step={50} value={settings.maxWidth} onChange={e => onChange({ maxWidth: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
-          <span>600px</span><span>1400px</span>
-        </div>
-      </>)}
-      {wrap(<>
-        {label('Section spacing')}
-        <select value={settings.sectionSpacing} onChange={e => onChange({ sectionSpacing: e.target.value as 'compact' | 'normal' | 'spacious' })} style={{ ...inp, cursor: 'pointer' }}>
-          <option value="compact">Compact (48px)</option>
-          <option value="normal">Normal (80px)</option>
-          <option value="spacious">Spacious (120px)</option>
-        </select>
-      </>)}
-      {wrap(<>
-        {label(`Border radius — ${settings.borderRadius}px`)}
-        <input type="range" min={0} max={24} value={settings.borderRadius} onChange={e => onChange({ borderRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
-          <span>0px</span><span>24px</span>
-        </div>
-      </>)}
+      {wrap(<>{label(`Max width — ${settings.maxWidth}px`)}<input type="range" min={600} max={1400} step={50} value={settings.maxWidth} onChange={e => onChange({ maxWidth: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} /></>)}
+      {wrap(<>{label('Section spacing')}<select value={settings.sectionSpacing} onChange={e => onChange({ sectionSpacing: e.target.value as 'compact' | 'normal' | 'spacious' })} style={{ ...inp, cursor: 'pointer' }}><option value="compact">Compact</option><option value="normal">Normal</option><option value="spacious">Spacious</option></select></>)}
+      {wrap(<>{label(`Border radius — ${settings.borderRadius}px`)}<input type="range" min={0} max={24} value={settings.borderRadius} onChange={e => onChange({ borderRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} /></>)}
 
       {/* Buttons */}
       {section('Buttons')}
-      {wrap(<>
-        {label('Button style')}
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {(['filled', 'outline', 'ghost'] as const).map(style => (
-            <button
-              key={style}
-              onClick={() => onChange({ buttonStyle: style })}
-              style={{
-                flex: 1,
-                padding: '8px 6px',
-                borderRadius: '7px',
-                border: settings.buttonStyle === style ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-                background: settings.buttonStyle === style ? 'rgba(255,255,255,0.06)' : 'transparent',
-                color: settings.buttonStyle === style ? '#fff' : 'rgba(255,255,255,0.4)',
-                fontSize: '10px',
-                fontWeight: settings.buttonStyle === style ? 700 : 500,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-                fontFamily: 'inherit',
-              }}
-            >
-              {style}
-            </button>
-          ))}
-        </div>
-      </>)}
-      {wrap(<>
-        {label('Button size')}
-        <select value={settings.buttonSize} onChange={e => onChange({ buttonSize: e.target.value as 'sm' | 'md' | 'lg' })} style={{ ...inp, cursor: 'pointer' }}>
-          <option value="sm">Small</option>
-          <option value="md">Medium</option>
-          <option value="lg">Large</option>
-        </select>
-      </>)}
-      {wrap(<>
-        {label(`Button radius — ${settings.buttonRadius}px`)}
-        <input type="range" min={0} max={50} value={settings.buttonRadius} onChange={e => onChange({ buttonRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
-          <span>0px</span><span>50px</span>
-        </div>
-      </>)}
+      {wrap(<>{label('Button style')}<div style={{ display: 'flex', gap: '4px' }}>{(['filled', 'outline', 'ghost'] as const).map(s => (<button key={s} onClick={() => onChange({ buttonStyle: s })} style={{ flex: 1, padding: '8px 6px', borderRadius: '7px', border: settings.buttonStyle === s ? '1px solid #ffffee2e' : '1px solid #ffffee14', background: settings.buttonStyle === s ? '#ffffee0f' : 'transparent', color: settings.buttonStyle === s ? '#ffe' : '#ffffeea6', fontSize: '10px', fontWeight: settings.buttonStyle === s ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{s}</button>))}</div></>)}
+      {wrap(<>{label('Button size')}<select value={settings.buttonSize} onChange={e => onChange({ buttonSize: e.target.value as 'sm' | 'md' | 'lg' })} style={{ ...inp, cursor: 'pointer' }}><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option></select></>)}
+      {wrap(<>{label(`Button radius — ${settings.buttonRadius}px`)}<input type="range" min={0} max={50} value={settings.buttonRadius} onChange={e => onChange({ buttonRadius: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} /></>)}
 
       {/* Background */}
       {section('Background')}
-      {wrap(<>
-        {label('Background style')}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-          {(BGS as { id: BackgroundId; label: string }[]).map(bg => (
-            <button
-              key={bg.id}
-              onClick={() => onChange({ background: bg.id })}
-              style={{
-                padding: '8px 6px',
-                borderRadius: '7px',
-                border: settings.background === bg.id ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-                background: settings.background === bg.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-                color: settings.background === bg.id ? '#fff' : 'rgba(255,255,255,0.4)',
-                fontSize: '10px',
-                fontWeight: settings.background === bg.id ? 700 : 500,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-                fontFamily: 'inherit',
-              }}
-            >
-              {bg.label}
-            </button>
-          ))}
-        </div>
-      </>)}
+      {wrap(<>{label('Background style')}<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>{(BGS as { id: BackgroundId; label: string }[]).map(bg => (<button key={bg.id} onClick={() => onChange({ background: bg.id })} style={{ padding: '8px 6px', borderRadius: '7px', border: settings.background === bg.id ? '1px solid #ffffee2e' : '1px solid #ffffee14', background: settings.background === bg.id ? '#ffffee0f' : 'transparent', color: settings.background === bg.id ? '#ffe' : '#ffffeea6', fontSize: '10px', fontWeight: settings.background === bg.id ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{bg.label}</button>))}</div></>)}
 
       {/* Effects */}
       {section('Effects')}
-      {wrap(
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {label('Glow effect')}
-          <Toggle value={settings.glowEnabled} onChange={v => onChange({ glowEnabled: v })} />
-        </div>
-      )}
-      {wrap(
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {label('Gradient headlines')}
-          <Toggle value={settings.gradientHeadlines} onChange={v => onChange({ gradientHeadlines: v })} />
-        </div>
-      )}
-      {wrap(
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {label('Glassmorphism')}
-          <Toggle value={settings.glassmorphism} onChange={v => onChange({ glassmorphism: v })} />
-        </div>
-      )}
+      {wrap(<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>{label('Glow effect')}<Toggle value={settings.glowEnabled} onChange={v => onChange({ glowEnabled: v })} /></div>)}
+      {wrap(<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>{label('Gradient headlines')}<Toggle value={settings.gradientHeadlines} onChange={v => onChange({ gradientHeadlines: v })} /></div>)}
+      {wrap(<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>{label('Glassmorphism')}<Toggle value={settings.glassmorphism} onChange={v => onChange({ glassmorphism: v })} /></div>)}
 
       {/* Ticker */}
       {section('Ticker & Scroll')}
-      {wrap(<>
-        {label(`Scroll speed — ${settings.tickerSpeed}s`)}
-        <input type="range" min={8} max={80} value={settings.tickerSpeed} onChange={e => onChange({ tickerSpeed: Number(e.target.value) })} style={{ width: '100%', accentColor: settings.accentColor || '#39FF14', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '4px' }}>
-          <span>Fast</span><span>Slow</span>
-        </div>
-      </>)}
+      {wrap(<>{label(`Scroll speed — ${settings.tickerSpeed}s`)}<input type="range" min={8} max={80} value={settings.tickerSpeed} onChange={e => onChange({ tickerSpeed: Number(e.target.value) })} style={{ width: '100%', accentColor: '#ffe', cursor: 'pointer' }} /></>)}
 
       {/* Page */}
       {section('Page')}
@@ -1037,201 +1404,8 @@ function GlobalSettingsPanel({ settings, onChange }: { settings: FunnelSettings;
       {section('Advanced')}
       {wrap(<>
         {label('Custom CSS')}
-        <textarea
-          value={settings.customCss}
-          onChange={e => onChange({ customCss: e.target.value })}
-          rows={8}
-          placeholder="/* Add custom CSS here */"
-          style={{ ...inp, resize: 'vertical', fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: '11px', lineHeight: 1.5 }}
-        />
-        <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginTop: '6px' }}>Advanced — CSS only applies to the funnel page.</p>
+        <textarea value={settings.customCss} onChange={e => onChange({ customCss: e.target.value })} rows={8} placeholder="/* Add custom CSS here */" style={{ ...inp, resize: 'vertical', fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: '11px', lineHeight: 1.5 }} />
       </>)}
-    </div>
-  )
-}
-
-// ─── Properties Panel ─────────────────────────────────────────────────────────
-
-function PropertiesPanel({ block, onChange }: { block: Block; onChange: (props: Block['props']) => void }) {
-  const label = (text: string) => <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '6px' }}>{text}</span>
-  const wrap = (content: React.ReactNode) => <div style={{ marginBottom: '14px' }}>{content}</div>
-  const inp: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '7px 10px', fontSize: '13px', color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
-  const selectStyle: React.CSSProperties = { ...inp, cursor: 'pointer' }
-  const ta: React.CSSProperties = { ...inp, resize: 'vertical' as const }
-
-  const typeLabel = block.type.replace('ic-', '').replace('-', ' ')
-  const titleCased = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)
-
-  return (
-    <div>
-      <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '16px' }}>{titleCased} Settings</p>
-
-      {/* ── Simple elements ──────────────────────────────────────── */}
-
-      {block.type === 'heading' && <>
-        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={3} style={ta} /></>)}
-        {wrap(<>{label('Level')}
-          <select value={block.props.level || 'h1'} onChange={e => onChange({ ...block.props, level: e.target.value as 'h1' | 'h2' | 'h3' })} style={selectStyle}>
-            <option value="h1">H1 — Page heading</option>
-            <option value="h2">H2 — Section heading</option>
-            <option value="h3">H3 — Subheading</option>
-          </select>
-        </>)}
-        {wrap(<>{label('Alignment')}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['left', 'center', 'right'] as const).map(a => (
-              <button key={a} onClick={() => onChange({ ...block.props, align: a })}
-                style={{
-                  flex: 1, padding: '6px', border: (block.props.align || 'center') === a ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.align || 'center') === a ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.align || 'center') === a ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
-                }}>{a}</button>
-            ))}
-          </div>
-        </>)}
-      </>}
-
-      {block.type === 'text' && <>
-        {wrap(<>{label('Text')}<textarea value={block.props.text} onChange={e => onChange({ ...block.props, text: e.target.value })} rows={5} style={ta} /></>)}
-        {wrap(<>{label('Alignment')}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['left', 'center', 'right'] as const).map(a => (
-              <button key={a} onClick={() => onChange({ ...block.props, align: a })}
-                style={{
-                  flex: 1, padding: '6px', border: (block.props.align || 'left') === a ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.align || 'left') === a ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.align || 'left') === a ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
-                }}>{a}</button>
-            ))}
-          </div>
-        </>)}
-      </>}
-
-      {block.type === 'button' && <>
-        {wrap(<>{label('Label')}<input type="text" value={block.props.label} onChange={e => onChange({ ...block.props, label: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('URL')}<input type="text" value={block.props.href} onChange={e => onChange({ ...block.props, href: e.target.value })} placeholder="https://..." style={inp} /></>)}
-        {wrap(<>{label('Style')}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['filled', 'outline', 'ghost'] as const).map(s => (
-              <button key={s} onClick={() => onChange({ ...block.props, style: s })} style={{ flex: 1, padding: '6px', border: (block.props.style || 'filled') === s ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.style || 'filled') === s ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.style || 'filled') === s ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{s}</button>
-            ))}
-          </div>
-        </>)}
-        {wrap(<>{label('Size')}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['sm', 'md', 'lg'] as const).map(s => (
-              <button key={s} onClick={() => onChange({ ...block.props, size: s })} style={{ flex: 1, padding: '6px', border: (block.props.size || 'lg') === s ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.size || 'lg') === s ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.size || 'lg') === s ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'uppercase', fontFamily: 'inherit' }}>{s}</button>
-            ))}
-          </div>
-        </>)}
-      </>}
-
-      {block.type === 'image' && <>
-        {wrap(<>{label('Image URL')}<input type="text" value={block.props.src} onChange={e => onChange({ ...block.props, src: e.target.value })} placeholder="https://..." style={inp} /></>)}
-        {wrap(<>{label('Alt text')}<input type="text" value={block.props.alt} onChange={e => onChange({ ...block.props, alt: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('Fit')}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['cover', 'contain', 'fill'] as const).map(f => (
-              <button key={f} onClick={() => onChange({ ...block.props, fit: f })} style={{ flex: 1, padding: '6px', border: (block.props.fit || 'cover') === f ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: (block.props.fit || 'cover') === f ? 'rgba(255,255,255,0.1)' : 'transparent', color: (block.props.fit || 'cover') === f ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: '10px', cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit' }}>{f}</button>
-            ))}
-          </div>
-        </>)}
-        {wrap(<>{label('Width (CSS)')}<input type="text" value={block.props.width || ''} onChange={e => onChange({ ...block.props, width: e.target.value })} placeholder="e.g. 100% or 400px" style={inp} /></>)}
-        {wrap(<>{label('Height (CSS)')}<input type="text" value={block.props.height || ''} onChange={e => onChange({ ...block.props, height: e.target.value })} placeholder="e.g. auto or 300px" style={inp} /></>)}
-      </>}
-
-      {block.type === 'form' && wrap(<>{label('Fields')}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {(['email', 'name', 'phone'] as FormField[]).map(f => (
-            <label key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={block.props.fields.includes(f)} onChange={e => { const fields = e.target.checked ? [...block.props.fields, f] : block.props.fields.filter(x => x !== f); onChange({ ...block.props, fields }) }} style={{ accentColor: 'var(--accent)' }} />
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </label>
-          ))}
-        </div>
-      </>)}
-
-      {/* ── Section blocks ───────────────────────────────────────── */}
-
-      {block.type === 'ic-hero' && <>
-        {wrap(<>{label('Badge')}<input type="text" value={block.props.badge} onChange={e => onChange({ ...block.props, badge: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('Headline')}<textarea value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} rows={4} style={ta} /></>)}
-        {wrap(<>{label('Subtext')}<textarea value={block.props.subtext} onChange={e => onChange({ ...block.props, subtext: e.target.value })} rows={3} style={ta} /></>)}
-        {wrap(<>{label('CTA Label')}<input type="text" value={block.props.ctaLabel} onChange={e => onChange({ ...block.props, ctaLabel: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('CTA URL')}<input type="text" value={block.props.ctaHref} onChange={e => onChange({ ...block.props, ctaHref: e.target.value })} style={inp} /></>)}
-      </>}
-
-      {block.type === 'ic-ticker' && wrap(<>{label('Items (one per line)')}
-        <textarea
-          value={block.props.items.join('\n')}
-          onChange={e => onChange({ ...block.props, items: e.target.value.split('\n').filter(Boolean) })}
-          rows={8}
-          style={ta}
-        />
-      </>)}
-
-      {block.type === 'ic-cards' && <>
-        {wrap(<>{label('Section Headline')}<textarea value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} rows={2} style={ta} /></>)}
-        {block.props.cards.map((card, i) => (
-          <div key={i} style={{ marginBottom: '14px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Card {i + 1}</p>
-              {block.props.cards.length > 1 && (
-                <button onClick={() => { const cards = block.props.cards.filter((_, idx) => idx !== i); onChange({ ...block.props, cards }) }} style={{ background: 'none', border: 'none', color: 'rgba(255,100,100,0.5)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
-              )}
-            </div>
-            {wrap(<>{label('Title')}<input type="text" value={card.title} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], title: e.target.value }; onChange({ ...block.props, cards }) }} style={inp} /></>)}
-            {wrap(<>{label('Description')}<textarea value={card.desc} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], desc: e.target.value }; onChange({ ...block.props, cards }) }} rows={2} style={ta} /></>)}
-            {wrap(<>{label('Bullets (one per line)')}<textarea value={(card.bullets || []).join('\n')} onChange={e => { const cards = [...block.props.cards]; cards[i] = { ...cards[i], bullets: e.target.value.split('\n').filter(Boolean) }; onChange({ ...block.props, cards }) }} rows={2} style={ta} /></>)}
-          </div>
-        ))}
-        <button onClick={() => onChange({ ...block.props, cards: [...block.props.cards, { title: 'New card', desc: 'Description.', bullets: [] }] })} style={{ width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', marginBottom: '14px', fontFamily: 'inherit' }}>
-          + Add card
-        </button>
-        {wrap(<>{label('CTA Label')}<input type="text" value={block.props.ctaLabel} onChange={e => onChange({ ...block.props, ctaLabel: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('CTA URL')}<input type="text" value={block.props.ctaHref} onChange={e => onChange({ ...block.props, ctaHref: e.target.value })} style={inp} /></>)}
-      </>}
-
-      {block.type === 'ic-faq' && <>
-        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} style={inp} /></>)}
-        {block.props.items.map((item, i) => (
-          <div key={i} style={{ marginBottom: '12px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>Q{i + 1}</p>
-              {block.props.items.length > 1 && (
-                <button onClick={() => { const items = block.props.items.filter((_, idx) => idx !== i); onChange({ ...block.props, items }) }} style={{ background: 'none', border: 'none', color: 'rgba(255,100,100,0.5)', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>×</button>
-              )}
-            </div>
-            {wrap(<>{label('Question')}<input type="text" value={item.q} onChange={e => { const items = [...block.props.items]; items[i] = { ...items[i], q: e.target.value }; onChange({ ...block.props, items }) }} style={inp} /></>)}
-            {wrap(<>{label('Answer')}<textarea value={item.a} onChange={e => { const items = [...block.props.items]; items[i] = { ...items[i], a: e.target.value }; onChange({ ...block.props, items }) }} rows={3} style={ta} /></>)}
-          </div>
-        ))}
-        <button onClick={() => onChange({ ...block.props, items: [...block.props.items, { q: 'New question', a: 'Answer here.' }] })} style={{ width: '100%', padding: '8px', borderRadius: '7px', border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
-          + Add question
-        </button>
-      </>}
-
-      {block.type === 'ic-apply' && <>
-        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('Subtext')}<textarea value={block.props.subtext} onChange={e => onChange({ ...block.props, subtext: e.target.value })} rows={2} style={ta} /></>)}
-      </>}
-
-      {block.type === 'ic-cta' && <>
-        {wrap(<>{label('Button Label')}<input type="text" value={block.props.label} onChange={e => onChange({ ...block.props, label: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('URL')}<input type="text" value={block.props.href} onChange={e => onChange({ ...block.props, href: e.target.value })} style={inp} /></>)}
-        {wrap(<>{label('Subtext')}<input type="text" value={block.props.subtext} onChange={e => onChange({ ...block.props, subtext: e.target.value })} style={inp} /></>)}
-      </>}
-
-      {block.type === 'ic-results' && <>
-        {wrap(<>{label('Headline')}<input type="text" value={block.props.headline} onChange={e => onChange({ ...block.props, headline: e.target.value })} style={inp} /></>)}
-        {wrap(<>
-          {label('Photo URLs (one per line)')}
-          <textarea
-            value={block.props.photos.join('\n')}
-            onChange={e => onChange({ ...block.props, photos: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
-            rows={10}
-            placeholder={'https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg'}
-            style={ta}
-          />
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '6px' }}>Paste image URLs, one per line. Use the &ldquo;scroll speed&rdquo; in Site Settings to control animation speed.</p>
-        </>)}
-      </>}
     </div>
   )
 }

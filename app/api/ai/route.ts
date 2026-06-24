@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { SYSTEM_PROMPT, extractJson } from '@/lib/ai-prompt'
-import { callAI, resolvePrefer, createSimulatedStream } from '@/lib/ai-provider'
+import { callAI, callAIStream } from '@/lib/ai-provider'
 import type { Block, FunnelSettings, BlockType } from '@/types/blocks'
 import { DEFAULT_PROPS } from '@/lib/templates'
 
@@ -16,20 +16,20 @@ interface Op {
   patch?: Partial<FunnelSettings>
 }
 
-interface ParsedAIResponse {
+interface AIResponse {
+  action: 'talk' | 'clarify' | 'edit'
+  reply: string
+  question?: string
   ops?: Op[]
   blocks?: Block[]
-  settings?: Partial<FunnelSettings> | null
-  explanation: string
+  settings?: Partial<FunnelSettings>
 }
 
 // ── Validation ───────────────────────────────────────────────────────────────────
 
 function validateBlockProps(type: BlockType, props: Record<string, unknown>): Record<string, unknown> {
   const defaults = DEFAULT_PROPS[type] as unknown as Record<string, unknown> | undefined
-  if (!defaults) return props // unknown type, pass through
-  // Merge with defaults so missing fields are filled
-  // But keep provided values where present
+  if (!defaults) return props
   const result = { ...defaults }
   for (const key of Object.keys(props)) {
     if (props[key] !== undefined && props[key] !== null) {
@@ -55,7 +55,7 @@ function applyOps(currentBlocks: Block[], currentSettings: FunnelSettings, ops: 
           const idx = blocks.findIndex(b => b.id === op.after)
           blocks.splice(idx >= 0 ? idx + 1 : blocks.length, 0, newBlock)
         } else {
-          blocks.unshift(newBlock)
+          blocks.push(newBlock)
         }
         break
       }
@@ -95,7 +95,6 @@ function applyOps(currentBlocks: Block[], currentSettings: FunnelSettings, ops: 
     }
   }
 
-  // Apply settings patch from top-level too (for rebuild mode)
   if (settingsPatch) {
     settings = { ...settings, ...settingsPatch }
   }
@@ -122,7 +121,7 @@ async function buildBusinessContext(supabaseClient: any, funnelId: string): Prom
       .single()
     if (!profile) return null
 
-    return [`Business Profile:`,
+    return ['Business Profile:',
       `- Name/Offer: ${profile.name || profile.offer_name || 'N/A'}`,
       `- Niche: ${profile.niche || 'N/A'}`,
       `- Price: $${profile.price || profile.price_range || 'N/A'}`,
@@ -137,17 +136,20 @@ async function buildBusinessContext(supabaseClient: any, funnelId: string): Prom
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function buildRecentMessages(supabaseClient: any, sessionId: string, limit = 6): Promise<string | null> {
+async function buildRecentMessages(supabaseClient: any, funnelId: string, limit = 8): Promise<string | null> {
   try {
     const { data: messages } = await supabaseClient
       .from('chat_messages')
       .select('role, content')
-      .eq('session_id', sessionId)
+      .eq('funnel_id', funnelId)
+      .eq('console_type', 'editor')
       .order('created_at', { ascending: false })
       .limit(limit)
 
     if (!messages?.length) return null
-    return messages.reverse().map((m: { role: string; content: string }) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
+    return messages.reverse().map((m: { role: string; content: string }) =>
+      `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
+    ).join('\n')
   } catch {
     return null
   }
@@ -157,7 +159,7 @@ async function buildRecentMessages(supabaseClient: any, sessionId: string, limit
 
 export async function POST(request: Request) {
   try {
-    const { blocks, settings, prompt, model: reqModel, funnelId, sessionId } = await request.json()
+    const { blocks, settings, prompt, funnelId, targetBlockId } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: 'Missing prompt' }, { status: 400 })
@@ -178,155 +180,196 @@ export async function POST(request: Request) {
     }
 
     // Inject recent chat messages for continuity
-    if (sessionId && user) {
-      const recent = await buildRecentMessages(supabase, sessionId)
+    if (funnelId && user) {
+      const recent = await buildRecentMessages(supabase, funnelId)
       if (recent) {
         systemPrompt += `\n\n--- RECENT CONVERSATION ---\n${recent}`
       }
     }
 
-    // Build user prompt
+    // Build user prompt — scope to target block if inspecting
+    let contextBlocks: string | null = null
+    if (targetBlockId && Array.isArray(blocks)) {
+      const target = (blocks as Block[]).find((b: Block) => b.id === targetBlockId)
+      if (target) {
+        systemPrompt += `\n\n--- INSPECT MODE ---\nThe user has selected section "${targetBlockId}" (type: ${target.type}) for editing. Focus your ops ONLY on this block unless the user asks to change other parts of the page.`
+        contextBlocks = JSON.stringify([target], null, 2)
+      }
+    }
+
     const userPrompt = [
       `Current blocks (JSON array, DO NOT re-emit unchanged blocks — use ops):`,
-      JSON.stringify(blocks, null, 2),
+      contextBlocks || JSON.stringify(blocks, null, 2),
       ``,
       `Current settings:`,
       JSON.stringify(settings, null, 2),
       ``,
       `User request: ${prompt}`,
+      targetBlockId ? `\n(the user has block "${targetBlockId}" selected in the editor — scope edits to it)` : '',
     ].join('\n')
 
-    // Resolve model preference
-    const prefer = resolvePrefer(reqModel)
+    // ── Try streaming (DeepSeek with reasoning) first, fall back to non-streaming ──
 
-    // Call AI with retries
-    const response = await callAI(userPrompt, {
-      systemPrompt,
-      jsonMode: true,
-      retries: 2,
-      prefer,
+    const encoder = new TextEncoder()
+    let streamedText = ''
+    let thinkingText = ''
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Try real streaming first
+          let streamSucceeded = false
+          try {
+            for await (const delta of callAIStream(userPrompt, {
+              systemPrompt,
+              jsonMode: true,
+              retries: 0,
+              prefer: 'deepseek',
+            })) {
+              if (delta.type === 'thinking') {
+                thinkingText += delta.delta
+                controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ delta: delta.delta })}\n\n`))
+              } else if (delta.type === 'done' && delta.text) {
+                streamedText = delta.text
+                streamSucceeded = true
+              }
+            }
+          } catch (streamErr) {
+            console.warn('AI stream failed, falling back to non-streaming:', streamErr)
+          }
+
+          // Fall back to non-streaming if streaming failed or returned no text
+          if (!streamSucceeded || !streamedText) {
+            try {
+              const response = await callAI(userPrompt, {
+                systemPrompt,
+                jsonMode: true,
+                retries: 2,
+                prefer: 'deepseek',
+              })
+              streamedText = response.text
+              // Emit a short thinking preamble for consistent UX
+              if (!thinkingText) {
+                controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ delta: 'Thinking about your request…' })}\n\n`))
+              }
+            } catch (aiErr) {
+              const errMsg = aiErr instanceof Error ? aiErr.message : 'AI call failed'
+              controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({ action: 'talk', reply: `Sorry, I ran into an issue: ${errMsg}`, blocks, settings })}\n\n`))
+              controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`))
+              controller.close()
+              return
+            }
+          }
+
+          // ── Parse AI response ──────────────────────────────────────────────
+          const cleanText = extractJson(streamedText)
+
+          let parsed: AIResponse
+          try {
+            const raw = JSON.parse(cleanText)
+
+            // Normalize action — treat unknown/missing as 'talk' (safe default)
+            const validActions = ['talk', 'clarify', 'edit']
+            const action: AIResponse['action'] = validActions.includes(raw.action) ? raw.action : 'talk'
+
+            parsed = {
+              action,
+              reply: typeof raw.reply === 'string' ? raw.reply : (raw.explanation || 'Done.'),
+              question: typeof raw.question === 'string' ? raw.question : undefined,
+              ops: raw.ops,
+              blocks: raw.blocks,
+              settings: raw.settings,
+            }
+          } catch {
+            console.error('Failed to parse AI JSON:', streamedText)
+            controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({ action: 'talk', reply: 'I had trouble processing that. Could you rephrase?', blocks, settings })}\n\n`))
+            controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`))
+            controller.close()
+            return
+          }
+
+          // ── Apply edits only when action='edit' ────────────────────────────
+          let resolvedBlocks: Block[] = blocks as unknown as Block[]
+          let resolvedSettings: FunnelSettings = settings as FunnelSettings
+
+          if (parsed.action === 'edit') {
+            // Ignore stray ops on non-edit actions (already handled by action check)
+            if (parsed.ops && Array.isArray(parsed.ops) && parsed.ops.length > 0) {
+              try {
+                const result = applyOps(blocks as unknown as Block[], settings as FunnelSettings, parsed.ops, parsed.settings)
+                resolvedBlocks = result.blocks
+                resolvedSettings = result.settings
+              } catch (err) {
+                console.error('Ops application failed:', err)
+                // Funnel stays unchanged on error
+              }
+            } else if (parsed.blocks && Array.isArray(parsed.blocks)) {
+              // Full rebuild
+              try {
+                resolvedBlocks = (parsed.blocks as unknown as Block[]).map(b => {
+                  const safeProps = validateBlockProps(b.type, b.props as unknown as Record<string, unknown>)
+                  return { ...b, props: safeProps } as unknown as Block
+                })
+                resolvedSettings = { ...settings, ...(parsed.settings || {}) } as FunnelSettings
+              } catch (err) {
+                console.error('Full rebuild validation failed:', err)
+                // Funnel stays unchanged on error
+              }
+            } else if (parsed.settings && Object.keys(parsed.settings).length > 0) {
+              // Settings-only edit
+              resolvedSettings = { ...settings, ...parsed.settings } as FunnelSettings
+            }
+            // If no ops, no blocks, no settings — it's an edit with nothing to change (e.g. "make it better" but AI returned empty ops). Keep unchanged.
+          }
+          // For talk/clarify: resolvedBlocks/settings stay as current state (unchanged)
+
+          // ── Build message event ────────────────────────────────────────────
+          const messagePayload: Record<string, unknown> = {
+            action: parsed.action,
+            reply: parsed.reply,
+            blocks: resolvedBlocks,
+            settings: resolvedSettings,
+          }
+          if (parsed.question) {
+            messagePayload.question = parsed.question
+          }
+          // Include resolved ops/blocks for the client to know what changed
+          if (parsed.ops && parsed.action === 'edit') {
+            messagePayload.ops = parsed.ops
+          }
+
+          controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(messagePayload)}\n\n`))
+
+          // ── Save chat messages ─────────────────────────────────────────────
+          if (user && funnelId) {
+            try {
+              await supabase.from('chat_messages').insert([
+                { user_id: user.id, funnel_id: funnelId, console_type: 'editor', role: 'user', content: prompt },
+                { user_id: user.id, funnel_id: funnelId, console_type: 'editor', role: 'assistant', content: parsed.reply },
+              ])
+            } catch (dbErr) {
+              console.error('Failed to save chat message:', dbErr)
+            }
+          }
+
+          controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`))
+          controller.close()
+        } catch (error: unknown) {
+          console.error('API route stream error:', error)
+          const errMsg = error instanceof Error ? error.message : 'An unknown error occurred.'
+          controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({ action: 'talk', reply: `Something went wrong: ${errMsg}`, blocks, settings })}\n\n`))
+          controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`))
+          controller.close()
+        }
+      },
     })
 
-    const cleanText = extractJson(response.text)
-
-    // Parse AI response
-    let parsed: ParsedAIResponse
-    try {
-      const raw = JSON.parse(cleanText)
-      parsed = {
-        ops: raw.ops,
-        blocks: raw.blocks,
-        settings: raw.settings,
-        explanation: raw.explanation || 'Page updated.',
-      }
-    } catch {
-      console.error('Failed to parse AI JSON:', response.text)
-      return NextResponse.json(
-        { error: 'PARSE_ERROR', message: 'AI returned invalid JSON.', raw: response.text },
-        { status: 500 },
-      )
-    }
-
-    // Apply ops or full rebuild
-    let resolvedBlocks: Block[]
-    let resolvedSettings: FunnelSettings
-
-    if (parsed.ops && Array.isArray(parsed.ops) && parsed.ops.length > 0) {
-      // Ops mode — apply targeted changes
-      try {
-        const result = applyOps(blocks as unknown as Block[], settings as FunnelSettings, parsed.ops, parsed.settings)
-        resolvedBlocks = result.blocks
-        resolvedSettings = result.settings
-      } catch (err) {
-        console.error('Ops application failed:', err)
-        // Fallback: return current state unchanged
-        resolvedBlocks = blocks as unknown as Block[]
-        resolvedSettings = settings as FunnelSettings
-        parsed.explanation = 'Error applying changes — funnel unchanged. ' + (parsed.explanation || '')
-      }
-    } else if (parsed.blocks && Array.isArray(parsed.blocks)) {
-      // Full rebuild mode — validate all blocks
-      try {
-        resolvedBlocks = (parsed.blocks as unknown as Block[]).map(b => {
-          const safeProps = validateBlockProps(b.type, b.props as unknown as Record<string, unknown>)
-          return { ...b, props: safeProps } as unknown as Block
-        })
-        resolvedSettings = { ...settings, ...(parsed.settings || {}) } as FunnelSettings
-      } catch (err) {
-        console.error('Full rebuild validation failed:', err)
-        resolvedBlocks = blocks as unknown as Block[]
-        resolvedSettings = settings as FunnelSettings
-        parsed.explanation = 'Error validating rebuild — funnel unchanged. ' + (parsed.explanation || '')
-      }
-    } else {
-      // No ops and no blocks — nothing to apply
-      resolvedBlocks = blocks as unknown as Block[]
-      resolvedSettings = settings as FunnelSettings
-    }
-
-    // Save chat messages (with session handling)
-    let resolvedSessionId = sessionId || null
-    try {
-      if (user) {
-        // Auto-create session if none
-        if (!resolvedSessionId && funnelId) {
-          const autoTitle = prompt.slice(0, 40) + (prompt.length > 40 ? '…' : '')
-          const { data: newSession } = await supabase
-            .from('chat_sessions')
-            .insert({ user_id: user.id, funnel_id: funnelId, title: autoTitle })
-            .select('id')
-            .single()
-          if (newSession) resolvedSessionId = newSession.id
-        }
-
-        if (resolvedSessionId) {
-          await supabase.from('chat_sessions')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', resolvedSessionId)
-        }
-
-        await supabase.from('chat_messages').insert([
-          { user_id: user.id, funnel_id: funnelId || null, session_id: resolvedSessionId, console_type: 'editor', role: 'user', content: prompt },
-          { user_id: user.id, funnel_id: funnelId || null, session_id: resolvedSessionId, console_type: 'editor', role: 'assistant', content: parsed.explanation },
-        ])
-      }
-    } catch (dbErr) {
-      console.error('Failed to save chat message:', dbErr)
-    }
-
-    // Stream or return
-    const streamParam = new URL(request.url).searchParams.get('stream')
-    if (streamParam !== 'false') {
-      // SSE streaming response
-      const finalData = {
-        blocks: resolvedBlocks,
-        settings: resolvedSettings,
-        explanation: parsed.explanation,
-        _provider: response.provider,
-        _model: response.model,
-        _sessionId: resolvedSessionId,
-      }
-
-      return new Response(
-        createSimulatedStream(parsed.explanation, finalData),
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            Connection: 'keep-alive',
-          },
-        },
-      )
-    }
-
-    // Non-streaming fallback
-    return NextResponse.json({
-      blocks: resolvedBlocks,
-      settings: resolvedSettings,
-      explanation: parsed.explanation,
-      _provider: response.provider,
-      _model: response.model,
-      _sessionId: resolvedSessionId,
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
     })
   } catch (error: unknown) {
     console.error('API route error:', error)

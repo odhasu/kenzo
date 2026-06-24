@@ -59,12 +59,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'NO_API_KEY', message: 'DeepSeek API key is not configured.' }, { status: 400 })
     }
 
-    // List all relevant files in the workspace (excluding node_modules, .next, .git)
+    // List all relevant files in the workspace (excluding node_modules, .next, .git,
+    // and reference-only clone folders which are full nested projects — never edited by the agent)
     const fileList: string[] = []
     const traverseDir = (dir: string) => {
       const files = fs.readdirSync(dir)
       for (const file of files) {
-        if (['node_modules', '.next', '.git', '.vercel', 'tsconfig.tsbuildinfo', '.DS_Store'].includes(file)) continue
+        if (['node_modules', '.next', '.git', '.vercel', 'tsconfig.tsbuildinfo', '.DS_Store', 'refernces'].includes(file)) continue
+        if (file.startsWith('_ref-')) continue
         const fullPath = path.join(dir, file)
         const relPath = path.relative(process.cwd(), fullPath)
         const stat = fs.statSync(fullPath)

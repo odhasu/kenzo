@@ -45,13 +45,17 @@ interface Template {
 - Add `tags` (e.g. "coaching", "SaaS", "DFY") for gallery filtering.
 - Consider 2–3 new archetypes later (webinar, book-a-call, tripwire) — not now.
 
-## Gallery page `/templates` 📋
+## Gallery page `/templates` 🔨 — the only way to start
 
-Clyro-style browsable grid, reusing the dashboard card pattern:
+Template-first is now the **single** create path (no build-from-scratch). Clyro-style browsable grid, reusing the dashboard card pattern:
 - Grid of template cards: live mini-preview (read-only `BlockRenderer` on `makeFunnelFromTemplate(t)`), name, description, archetype tag.
-- Filter by archetype/tag; search.
-- "Use template" → `makeFunnelFromTemplate(t)` → create funnel + page → open editor.
-- Entry points: dashboard "New funnel" → choose **Template** or **Build with AI** (live-chat).
+- Filter by archetype/tag; search (📋).
+- "Use template" → server action: `makeFunnelFromTemplate(t)` → insert funnel + page (seeded `content`+`settings`) → redirect to editor.
+- Entry point: dashboard "New funnel" → `/templates`. See [CREATE-FLOW.md](CREATE-FLOW.md).
+
+## Clone clyro.com templates 📋 (next prompt)
+
+The 6 current templates are functional but generic. The **next build prompt** replaces them with **1:1 clones of clyro.com's live templates**, then perfects them — real layouts, real copy quality, thumbnails, tags. The app shell ([the Part-5 prompt](prompts/part-5-template-editor.md)) ships first; template cloning is its own pass so the design work doesn't stall the editor pivot.
 
 ## Library 📋
 
@@ -60,9 +64,9 @@ User's saved reusable sections (premium tier, like Clyro's Library):
 - New table `library_sections` (see [DATA-MODEL.md](DATA-MODEL.md)).
 - Insert a saved section into any funnel from the Sections tree's "+".
 
-## How AI uses templates ✅
+## Templates and AI
 
-In the [live-chat create flow](CREATE-FLOW.md): `pickArchetype(answers)` heuristically maps offer/price/tone → archetype; the AI builds on that skeleton. `getTemplateByArchetype()` falls back to `innercircle` if unknown.
+The **user** picks the template from the gallery — the AI no longer selects one. (The old `pickArchetype()` / `getTemplateByArchetype()` heuristics were only used by the deleted live-chat planner and are removed.) After seeding, **Kenzo AI** edits the funnel from the chat like any other; it composes from the existing block/section types first. `makeFunnelFromTemplate(t)` remains the single seeding helper.
 
 ## References — your existing funnels
 

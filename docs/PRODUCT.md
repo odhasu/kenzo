@@ -6,9 +6,7 @@
 
 [Clyro](REFERENCE-CLYRO.md) is an AI theme builder for Shopify: describe a change in a chat, the AI writes the code, a live preview updates instantly, and you ship a validated theme. Kenzo takes that exact builder model and points it at **high-ticket coaching funnels** instead of Shopify themes.
 
-Two modes, one product:
-- **Conversational build** — AI interviews the coach (niche, offer, audience) and emits a complete funnel live, the way Clyro's chat composes a theme.
-- **Template-driven editing** — start from a gallery template, then refine every block, setting, and word in the 3-panel builder.
+**One flow: template-first.** You start from a gallery template (no building from scratch), then refine every block, setting, and word in the 3-panel builder — by hand on the right, or by describing changes to **Kenzo AI** on the left.
 
 ## Target user
 
@@ -22,8 +20,8 @@ Coaches and course creators who:
 ## User journey (north star)
 
 1. **Log in** → Dashboard → see your funnels (cards with status + live preview thumbnail), à la Clyro's "Your themes" grid.
-2. **Create** → either **pick a template** from the [gallery](TEMPLATES.md) or land in the **live-chat split-screen**: AI chat on LEFT asks questions; funnel builds **live** on RIGHT. When the build is done, the full 3-panel builder opens for fine edits.
-3. **Edit** in the 3-panel builder ([EDITOR.md](EDITOR.md)): left AI composer, center live preview (click any block to **scope** the next edit to it — Clyro's Inspect), right Sections tree + Settings.
+2. **Create** → **pick a template** from the [gallery](TEMPLATES.md) (`/templates`). "Use template" seeds a funnel and opens the 3-panel builder. (No build-from-scratch path — removed in Part 5.)
+3. **Edit** in the 3-panel builder ([EDITOR.md](EDITOR.md)): left **Kenzo AI** chat, center live preview (click any section to **scope** the next AI edit to it — Clyro's Inspect — and open its settings), right section list → per-section settings + Theme.
 4. **Click existing funnel** → funnel detail → **Edit funnel** or **View Insights**.
 5. **Insights** = traffic/conversion + speed + lead-pipeline value + page load speed.
 6. **Publish** → validated, then live at `/f/[slug]` with a share link.
@@ -41,9 +39,9 @@ Coaches and course creators who:
 | **Business Profile** | User's business context in `business_profiles` — niche, offer, audience, pricing, tone |
 | **Template** | A pre-built funnel (block order + seed props + theme) in the [gallery](TEMPLATES.md) |
 | **Library** | User's saved reusable sections (Clyro's Library) |
-| **Inspect / scope** | Click a block in the preview → next AI message edits only that block |
+| **Inspect / scope** | Click a section in the preview → it's selected, its settings open on the right, and the next AI message edits only that section |
+| **Kenzo AI** | The single in-editor AI builder (one model, no picker shown). Edits blocks + settings from a chat prompt |
 | **Preview-data** | Mock offer/leads/testimonials/pricing so the preview looks real before publish |
-| **Live Build** | AI builds the funnel in real-time as the user answers questions in chat |
 
 ## North-star metrics
 

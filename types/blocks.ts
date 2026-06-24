@@ -1,5 +1,5 @@
 export type BlockType =
-  | 'heading' | 'text' | 'button' | 'image' | 'form'
+  | 'heading' | 'text' | 'button' | 'image' | 'form' | 'code'
   | 'ic-hero' | 'ic-ticker' | 'ic-cards' | 'ic-faq' | 'ic-apply' | 'ic-cta' | 'ic-results'
 
 export type ThemeId = 'dark-green' | 'dark-minimal' | 'light-clean' | 'light-blue'
@@ -18,6 +18,7 @@ export interface TextProps    { text: string; align?: 'left' | 'center' | 'right
 export interface ButtonProps  { label: string; href: string; style?: 'filled' | 'outline' | 'ghost'; size?: ButtonSize }
 export interface ImageProps   { src: string; alt: string; fit?: 'cover' | 'contain' | 'fill'; width?: string; height?: string }
 export interface FormProps    { fields: FormField[] }
+export interface CodeProps    { html: string }
 
 export interface IcHeroProps {
   badge: string
@@ -65,6 +66,7 @@ export type BlockProps =
   | { type: 'button';     props: ButtonProps }
   | { type: 'image';      props: ImageProps }
   | { type: 'form';       props: FormProps }
+  | { type: 'code';       props: CodeProps }
   | { type: 'ic-hero';    props: IcHeroProps }
   | { type: 'ic-ticker';  props: IcTickerProps }
   | { type: 'ic-cards';   props: IcCardsProps }
@@ -73,7 +75,20 @@ export type BlockProps =
   | { type: 'ic-cta';     props: IcCtaProps }
   | { type: 'ic-results'; props: IcResultsProps }
 
-export type Block = BlockProps & { id: string; hidden?: boolean }
+export interface BlockStyle {
+  bgColor?: string
+  textColor?: string
+  accentColor?: string
+  headingFont?: string
+  bodyFont?: string
+  fontScale?: number
+  align?: 'left' | 'center' | 'right'
+  paddingY?: number
+  borderRadius?: number
+  buttonStyle?: ButtonStyle
+}
+
+export type Block = BlockProps & { id: string; hidden?: boolean; style?: BlockStyle }
 
 export interface FunnelSettings {
   theme: ThemeId

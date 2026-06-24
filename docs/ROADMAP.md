@@ -11,7 +11,9 @@
 
 ---
 
-## Phase 1 — Live-chat builder (CENTERPIECE)
+## Phase 1 — Live-chat builder ⚰️ REMOVED (Part 5)
+
+> Was built, now deleted. Kenzo is template-first — there is no `/create`, no live-chat split-screen, no onboarding wizard. Kept below for history only; see **Part 5** and [CREATE-FLOW.md](CREATE-FLOW.md).
 
 Replace the form wizard with a single split-screen at `/create`.
 
@@ -76,7 +78,7 @@ Replace the form wizard with a single split-screen at `/create`.
 
 ### Tasks
 - [ ] Extract provider chain into `lib/ai-provider.ts`
-- [ ] Unify `/api/ai`, `/api/ai/build-funnel`, `/api/ai/plan-funnel` to use one abstraction
+- [x] Provider abstraction in `lib/ai-provider.ts` (the build/plan routes that also used it were removed in Part 5)
 - [ ] Add retries with exponential backoff
 - [ ] JSON schema validation on all AI outputs
 - [ ] Optional SSE streaming for live-chat build
@@ -98,14 +100,31 @@ Replace the form wizard with a single split-screen at `/create`.
 
 ---
 
-## Clyro-alignment phases (current focus)
+## Part 5 — Template-first editor + Kenzo AI (CURRENT FOCUS)
 
-Bring the builder to full 1:1 parity with [Clyro](REFERENCE-CLYRO.md). See the mapping table there for what's built vs planned.
+The pivot: **no build-from-scratch.** Start from a template, edit per-section on the right, talk to **Kenzo AI** (one model, no picker) on the left. Build prompt: [`docs/prompts/part-5-template-editor.md`](prompts/part-5-template-editor.md).
 
-### Phase 7 — Editor re-layout (AI-left, Sections-right)
-- [ ] Move AI composer to the LEFT rail; move section tree to the RIGHT alongside Settings
-- [ ] Composer parity: model picker, 📎 attach/upload, Clyro chat styling — **no credits, no report-footer**
-**Acceptance**: 3-panel layout matches Clyro (left chat / center preview / right Sections·Settings).
+### Tasks
+- [ ] **Delete scratch flow**: `app/create/`, `components/create/LiveChatBuilder.tsx`, `components/onboarding/*`, and AI routes `build-funnel` / `plan-funnel` / `create-funnel` / `onboarding-questions`. Dashboard "New funnel" → `/templates`.
+- [ ] **`/templates` gallery**: cards with live mini-preview; "Use template" server action seeds funnel+page → editor.
+- [ ] **Left rail = Kenzo AI**: single chat, no model picker, no upload, no sessions sidebar, send→Stop (abort), chat memory per funnel.
+- [ ] **`/api/ai` simplify**: default `prefer: 'deepseek'`, drop `model` field, keep ops + SSE + safety.
+- [ ] **Right panel**: section list → click (list or preview) opens per-section settings (text + colors + fonts + spacing + more, no raw CSS); Theme tab for global; "Browse templates".
+- [ ] **Per-section style**: add `block.style` (`BlockStyle`) in `types/blocks.ts`; `BlockRenderer` applies it over theme tokens; no migration.
+- [ ] **App look**: Clyro dark palette on app chrome (not funnel preview). Keep desktop/mobile toggle + undo/redo + Publish.
+
+**Acceptance**: see the prompt's acceptance criteria. Out of scope: cloning clyro.com templates (next prompt), Opbot/DM/SMS, billing.
+
+---
+
+## Clyro-alignment phases (superseded where they overlap Part 5)
+
+Bring the builder to full 1:1 parity with [Clyro](REFERENCE-CLYRO.md). Part 5 above supersedes the AI-left re-layout (Phase 7), Inspect (Phase 8), the sections tree (Phase 9), and the gallery half of Phase 10. See the mapping table in REFERENCE-CLYRO for what's built vs planned.
+
+### Phase 7 — Editor re-layout (AI-left, Sections-right) → folded into Part 5
+- [ ] Move AI composer to the LEFT rail; move section list to the RIGHT alongside Theme
+- [ ] Composer: Clyro chat styling, send→Stop — **no model picker, no upload, no sessions sidebar, no credits**
+**Acceptance**: 3-panel layout matches Clyro (left Kenzo AI / center preview / right section list·Theme).
 
 ### Phase 8 — Inspect / scoped edits
 - [ ] Clicking a block in the preview sets `selectedId` and arms scoping
@@ -154,8 +173,9 @@ Bring the builder to full 1:1 parity with [Clyro](REFERENCE-CLYRO.md). See the m
 
 | Item | Decision | Reason |
 |------|----------|--------|
-| `OnboardingWizard` | Scrap | Replaced by LiveChatBuilder (Phase 1) |
-| `create-funnel` endpoint | Fix | Make `plannedSections` optional, unify with `build-funnel` |
-| `clyroclone/`, `opbotclone/` | Delete | Only `.next` cache, no source code |
+| `OnboardingWizard` + `components/onboarding/*` | **Delete (Part 5)** | No scratch flow — template-first only |
+| `LiveChatBuilder` + `app/create/` | **Delete (Part 5)** | No scratch flow — template-first only |
+| `build-funnel` / `plan-funnel` / `create-funnel` / `onboarding-questions` routes | **Delete (Part 5)** | Belonged to the scratch/live-chat flow |
+| Model picker + 📎 upload + chat sessions sidebar | **Delete (Part 5)** | One model (Kenzo AI), no upload, single chat |
 | `components/refernces/` | Keep as ref | Reference only, never import |
 | `_ref-*` directories | Keep as ref | Reference only, never import |

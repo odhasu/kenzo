@@ -57,45 +57,47 @@ export function BusinessSettingsPanel() {
   const supabase = createClient()
 
   useEffect(() => {
-    loadProfile()
+    let active = true
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { if (active) setLoading(false); return }
+
+      const { data } = await supabase
+        .from('business_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+      if (!active) return
+
+      if (data) {
+        setProfile({
+          offer_type: data.offer_type || '',
+          niche: data.niche || '',
+          transform: data.transform || '',
+          competitors: data.competitors || '',
+          dream_client: data.dream_client || '',
+          tried_before: data.tried_before || '',
+          client_wants: data.client_wants || '',
+          offer_name: data.offer_name || '',
+          offer_format: data.offer_format || '',
+          offer_includes: data.offer_includes || '',
+          guarantee: data.guarantee || '',
+          price: data.price || '',
+          value_roi: data.value_roi || '',
+          payment_type: data.payment_type || '',
+          pain_points: data.pain_points || '',
+          top_objection: data.top_objection || '',
+          inaction_cost: data.inaction_cost || '',
+          social_proof: data.social_proof || '',
+          brand_voice: data.brand_voice || '',
+          voice_notes: data.voice_notes || '',
+        })
+      }
+      setLoading(false)
+    })()
+    return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const { data } = await supabase
-      .from('business_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (data) {
-      setProfile({
-        offer_type: data.offer_type || '',
-        niche: data.niche || '',
-        transform: data.transform || '',
-        competitors: data.competitors || '',
-        dream_client: data.dream_client || '',
-        tried_before: data.tried_before || '',
-        client_wants: data.client_wants || '',
-        offer_name: data.offer_name || '',
-        offer_format: data.offer_format || '',
-        offer_includes: data.offer_includes || '',
-        guarantee: data.guarantee || '',
-        price: data.price || '',
-        value_roi: data.value_roi || '',
-        payment_type: data.payment_type || '',
-        pain_points: data.pain_points || '',
-        top_objection: data.top_objection || '',
-        inaction_cost: data.inaction_cost || '',
-        social_proof: data.social_proof || '',
-        brand_voice: data.brand_voice || '',
-        voice_notes: data.voice_notes || '',
-      })
-    }
-    setLoading(false)
-  }
 
   async function handleSave() {
     setSaving(true)

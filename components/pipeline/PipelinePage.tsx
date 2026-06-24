@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Lead, getUserLeads, getPipelineStats, updateLeadStage, PipelineStats } from '@/lib/leads'
 import { KanbanBoard } from './KanbanBoard'
 import { AddLeadModal } from './AddLeadModal'
@@ -13,24 +13,25 @@ export function PipelinePage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadData = useCallback(async () => {
-    try {
-      const [leadsData, statsData] = await Promise.all([
-        fetch('/api/leads').then((r) => r.json()),
-        fetch('/api/leads/stats').then((r) => r.json()),
-      ])
-      setLeads(leadsData.leads || [])
-      setStats(statsData.stats || null)
-    } catch {
-      setError('Failed to load pipeline data.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    let active = true
+    ;(async () => {
+      try {
+        const [leadsData, statsData] = await Promise.all([
+          fetch('/api/leads').then((r) => r.json()),
+          fetch('/api/leads/stats').then((r) => r.json()),
+        ])
+        if (!active) return
+        setLeads(leadsData.leads || [])
+        setStats(statsData.stats || null)
+      } catch {
+        if (active) setError('Failed to load pipeline data.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
 
   const handleStageChange = async (
     leadId: string,

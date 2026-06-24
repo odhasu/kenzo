@@ -3,10 +3,35 @@ import { notFound } from 'next/navigation'
 import { BlockRenderer } from '@/components/blocks/BlockRenderer'
 import { FunnelBackground } from '@/components/funnel/FunnelBackground'
 import { FunnelBeacon } from '@/components/funnel/FunnelBeacon'
-import type { Block, FunnelSettings } from '@/types/blocks'
+import { sanitizeHtml } from '@/lib/sanitize'
+import type { Block, BlockStyle, FunnelSettings } from '@/types/blocks'
 import { DEFAULT_SETTINGS } from '@/types/blocks'
 import { resolveTokens } from '@/lib/themes'
 import type { Metadata } from 'next'
+
+function SectionWrapper({ block, settings }: { block: Block; settings: FunnelSettings }) {
+  const style = block.style || {}
+  const sectionStyle: Record<string, string | number | undefined> = {}
+
+  if (style.bgColor) sectionStyle.backgroundColor = style.bgColor
+  if (style.textColor) sectionStyle.color = style.textColor
+  if (style.accentColor) sectionStyle['--accent'] = style.accentColor
+  if (style.headingFont) sectionStyle['--heading-font'] = style.headingFont
+  if (style.bodyFont) sectionStyle.fontFamily = style.bodyFont
+  if (style.fontScale) sectionStyle['--font-scale'] = String(style.fontScale)
+  if (style.align) sectionStyle.textAlign = style.align
+  if (style.paddingY !== undefined) {
+    sectionStyle.paddingTop = `${style.paddingY}px`
+    sectionStyle.paddingBottom = `${style.paddingY}px`
+  }
+  if (style.borderRadius !== undefined) sectionStyle.borderRadius = `${style.borderRadius}px`
+
+  return (
+    <div style={sectionStyle as React.CSSProperties}>
+      <BlockRenderer block={block} settings={settings} />
+    </div>
+  )
+}
 
 export const revalidate = 60
 
@@ -23,9 +48,20 @@ async function getFunnelData(slug: string) {
   if (!funnel) return null
 
   const page = funnel.pages?.sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0]
-  const blocks = (page?.content || []) as Block[]
+  const rawBlocks = (page?.content || []) as Block[]
   const rawSettings = (page?.settings || {}) as Partial<FunnelSettings>
   const settings: FunnelSettings = { ...DEFAULT_SETTINGS, ...rawSettings }
+
+  // Sanitize code blocks for public page (XSS protection)
+  const blocks = rawBlocks.map((block): Block => {
+    if (block.type === 'code' && block.props && 'html' in block.props) {
+      return {
+        ...block,
+        props: { ...block.props, html: sanitizeHtml(block.props.html as string) },
+      }
+    }
+    return block
+  })
 
   return { settings, blocks, funnelId: funnel.id }
 }
@@ -93,13 +129,13 @@ export default async function PublicFunnelPage({ params }: { params: Promise<{ s
         {isDark ? (
           <div style={{ position: 'relative', zIndex: 1 }}>
             {visibleBlocks.map((block) => (
-              <BlockRenderer key={block.id} block={block} settings={settings} />
+              <SectionWrapper key={block.id} block={block} settings={settings} />
             ))}
           </div>
         ) : (
           <main style={{ maxWidth: '800px', margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 1 }}>
             {visibleBlocks.map((block) => (
-              <BlockRenderer key={block.id} block={block} settings={settings} />
+              <SectionWrapper key={block.id} block={block} settings={settings} />
             ))}
           </main>
         )}

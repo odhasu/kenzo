@@ -333,6 +333,8 @@ function NoiseBackground() {
       imageData.data[i + 3] = 40
     }
     ctx.putImageData(imageData, 0, 0)
+    // Canvas + Math.random is browser-only; must run post-mount to avoid an SSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTileUrl(canvas.toDataURL())
   }, [])
 

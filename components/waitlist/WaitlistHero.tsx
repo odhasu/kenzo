@@ -31,8 +31,11 @@ export function WaitlistHero() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Time + mounted are client-only (Date.now differs from the server); set post-mount to avoid a hydration mismatch.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setTime(calcTimeLeft())
     setMounted(true)
+    /* eslint-enable react-hooks/set-state-in-effect */
     const interval = setInterval(() => setTime(calcTimeLeft()), 1000)
     return () => clearInterval(interval)
   }, [])

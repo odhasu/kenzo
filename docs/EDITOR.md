@@ -1,39 +1,42 @@
 # Editor — the 3-panel AI funnel builder
 
-Modeled 1:1 on [Clyro's builder](REFERENCE-CLYRO.md). Left AI chat composer, center live preview, right Sections tree / Settings — plus Code view and a Preview-data layer.
+Modeled 1:1 on [Clyro's builder](REFERENCE-CLYRO.md). Left **Kenzo AI** chat, center live preview, right section list → per-section Settings + Theme. The whole app chrome uses Clyro's dark warm-paper look (see [App look](#app-look--clyro-dark)).
 
 ## 3-Panel layout
 
 ```
 ┌─ top bar ─────────────────────────────────────────────────────────────────┐
-│ [Funnel ▾] │ 💬Chat ✦Inspect │ 👁Preview ↶↷ │ 📱desktop/mobile │ Sections▕Settings ⬡Code ? ☀ │ Publish │
+│ [Funnel ▾] │ ✦Inspect │ 👁Preview ↶↷ │ 📱desktop/mobile │ Sections▕Theme ? │ Publish │
 ├──────────────────┬───────────────────────────────────┬──────────────────────┤
-│ LEFT — AI chat    │ CENTER — live preview              │ RIGHT — Sections OR   │
-│ ~360px            │ flex                               │ Settings · ~300px     │
-│                   │                                    │                       │
-│ composer:         │ live render of funnel blocks,      │ ▤ Sections tree       │
-│  Ask anything…    │ theme-driven, reloads on AI edit   │   HEADER / TEMPLATE /  │
-│  📎  model ▾   ↑  │ click block → select + SCOPE       │   FOOTER / OVERLAY    │
-│                   │ next AI edit to it (Inspect)       │ ⚙ Settings tabs       │
+│ LEFT — Kenzo AI   │ CENTER — live preview              │ RIGHT — Sections list │
+│ ~360px            │ flex                               │ → per-section settings│
+│                   │                                    │   + Theme · ~300px    │
+│ composer:         │ live render of funnel blocks,      │ ▤ Section list        │
+│  Ask anything…    │ theme-driven, reloads on AI edit   │   click → its settings│
+│            ↑/■    │ click section → select + open its  │   (text/colors/fonts) │
+│                   │ settings + SCOPE next AI edit      │ ⚙ Theme tab (global)  │
 └──────────────────┴───────────────────────────────────┴──────────────────────┘
 ```
 
 Component: `components/editor/EditorLayout.tsx` ✅. Error boundary: `components/editor/CanvasErrorBoundary.tsx` ✅.
 
-> **Migration note:** today the left panel is a Sidebar (section/element/layers pickers) and the right panel holds Settings/Business/AI-Builder tabs. The Clyro-aligned target moves the **AI chat to the LEFT rail** and the **Sections tree to the RIGHT** alongside Settings. Track this re-layout in [ROADMAP.md](ROADMAP.md).
+> **Entry:** the editor is only reached by picking a template in the [gallery](TEMPLATES.md) → "Use template" seeds the funnel. There is no build-from-scratch path. See [CREATE-FLOW.md](CREATE-FLOW.md).
 
 ---
 
-## Left — AI chat composer 🔨→📋
+## Left — Kenzo AI chat 🔨
 
-The primary way to build. Mirrors Clyro's composer.
+One chat per funnel, branded **Kenzo AI**. Mirrors Clyro's composer, minus the extras we don't ship.
 
 - **Empty state**: "Start editing with AI: describe what you want to change. — Describe your changes and I'll handle the rest."
-- **Composer**: `Ask anything…` textarea · **📎 attach/upload** (image/asset) 📋 · **model picker** inline (`✦ <model> ▾`) 🔨 · send (↑).
-- **Messages** stack above the composer; chat history persisted to `chat_messages` (`console_type='editor'`) ✅.
-- **Scoped edits** (Inspect): if a block is selected in the preview, the message edits **only that block**; otherwise it edits the whole funnel. See [AI.md](AI.md#scoped-edits--inspect).
-- Component: `components/editor/AiBuilderPanel.tsx` ✅. Sends `{blocks, settings, prompt, model, funnelId, selectedId?}` → `POST /api/ai` → `{blocks|ops, settings, explanation}`.
-- **No credits** — no credit counter, no "report conversation" footer (kenzo drops Clyro's metering).
+- **Composer**: `Ask anything…` textarea + **send** (↑). While a reply streams, send becomes a **Stop** (■) that aborts the request (`AbortController`) and keeps the partial text.
+- **Thinking → reply → edit.** Kenzo AI is a thinking partner, not an auto-editor. Each turn streams its **full reasoning** (collapsible block above the reply), then a conversational **reply**, then applies an edit **only if the request was a clear change**. Questions, advice, and vague asks get a reply or one clarifying question — the page is left untouched. Full doctrine in [AI.md](AI.md#core-doctrine--think-first-edit-only-when-clear).
+- **Edits apply straight to the canvas** the moment they arrive (no confirm step); **Undo** (↶) reverts the last AI edit.
+- **No model picker** — one model, no provider names in the UI. **No file upload** (no 📎). **No sessions sidebar** (single chat, like Clyro).
+- **Messages** stack above the composer; persisted to `chat_messages` (`console_type='editor'`, keyed by `funnel_id`). On reopen, the funnel's prior messages load — the chat remembers.
+- **Scoped edits** (Inspect): if a section is selected in the preview, the message edits **only that section**; otherwise it edits the whole funnel. See [AI.md](AI.md#scoped-edits--inspect).
+- Component: `components/editor/AiBuilderPanel.tsx`. Sends `{blocks, settings, prompt, funnelId, selectedId?}` → `POST /api/ai` → SSE: `thinking` deltas, then `{ action, reply, question?, ops|blocks, settings }`.
+- **No credits** — no credit counter, no "report conversation" footer.
 
 ---
 
@@ -41,16 +44,16 @@ The primary way to build. Mirrors Clyro's composer.
 
 - Live render of all blocks in order via `BlockRenderer`.
 - Theme-driven: reads CSS custom properties from `resolveTokens(settings)` injected at root.
-- **Click a block → selects it** (accent outline) AND arms scoping for the next AI message (Inspect). Hover → subtle outline.
+- **Click a section → selects it** (accent outline), **opens its settings on the right**, AND arms scoping for the next AI message (Inspect). Hover → subtle outline.
 - **Device toggle**: desktop / mobile 📋.
 - Read-only mode reused by live preview and `/f/[slug]`.
 - Error boundary wraps the entire render tree — never whitescreens, even on malformed AI output.
 
 ---
 
-## Right — Sections tree 🔨→📋
+## Right — Section list → per-section settings 🔨
 
-Replaces the old left Sidebar's section/element/layers pickers. Grouped exactly like Clyro:
+The default right-panel view. A list of the funnel's sections in order. Optionally grouped like Clyro (all current block types fall under TEMPLATE):
 
 | Group | Holds | Status |
 |-------|-------|--------|
@@ -59,16 +62,22 @@ Replaces the old left Sidebar's section/element/layers pickers. Grouped exactly 
 | **FOOTER** | Footer | 📋 (new block type) |
 | **OVERLAY** | Exit-intent popup, lead-capture modal | 📋 (new block types) |
 
-Per-group **"+"** to add a section · per-item **disclosure arrow** for nested blocks · per-item **visibility eye** (hide without deleting) 📋 · click a section → opens its settings · drag to reorder 📋. Page switcher on top (single-page funnels for now; multi-page 📋).
+Per-item **visibility eye** (`block.hidden`, hide without deleting) · **click a section → opens its settings** (or click it in the preview) · drag to reorder · add/remove. A **"Browse templates"** button links to `/templates`. Adding a section inserts it with `DEFAULT_PROPS[type]`.
 
-Adding a section inserts it with `DEFAULT_PROPS[type]`.
+### Per-section settings (when a section is selected)
+
+Shows **as many controls as possible** for that one section — no raw custom-CSS box:
+
+- **Content** — driven by the block's props. E.g. `ic-hero`: badge/headline/subtext/ctaLabel/ctaHref; `ic-cards`: headline + editable card list (title/desc/bullets) + cta; `ic-faq`: editable Q/A list; `ic-ticker`: editable items; basic blocks: their props. Array props get add/remove/reorder.
+- **Style overrides for this section** — background color, text color, accent color, heading font, body font, font scale, alignment, vertical padding/spacing, button style, border radius. A **"Reset to theme"** clears the section's overrides.
+
+Per-section style is stored on the block itself in `page.content` (`block.style`) — see [Per-section style](#per-section-style-). No DB migration.
 
 ---
 
-## Right — Settings tabs ✅
+## Right — Theme tab (global) ✅
 
-### Settings tab (theme/global)
-Maps to Clyro's Theme settings. Structured into groups:
+Maps to Clyro's Theme settings — the global defaults every section inherits unless overridden. Structured into groups:
 
 - **Theme picker**: 4 presets (`dark-green`, `dark-minimal`, `light-clean`, `light-blue`)
 - **Colors**: Accent, Background, Text (hex inputs)
@@ -117,7 +126,7 @@ Clyro's "Preview data" (mock products/collections/discounts). kenzo's analog mak
 
 ## Block types
 
-Two families in `types/blocks.ts`:
+Every block also carries optional `hidden?: boolean` (visibility eye) and `style?: BlockStyle` (per-section overrides — see [Per-section style](#per-section-style-)). Two families in `types/blocks.ts`:
 
 ### Basic elements
 | Type | Props |
@@ -127,6 +136,7 @@ Two families in `types/blocks.ts`:
 | `button` | `label`, `href`, `style?`, `size?` |
 | `image` | `src`, `alt`, `fit?`, `width?`, `height?` |
 | `form` | `fields` (email/name/phone) |
+| `code` 🔨 | `html` (raw HTML/CSS/JS string) — the AI's "full power" escape hatch for interactivity (countdowns, toggles, embeds) the typed blocks can't express. **Editor preview renders it fully; the published `/f/[slug]` page sanitizes it** (whitelisted embeds kept, arbitrary inline JS stripped) to block XSS against visitors. See [AI.md](AI.md#raw-code-is-sanitized-on-publish). |
 
 ### IC sections (theme-aware) ✅
 | Type | Props |
@@ -148,6 +158,27 @@ Two families in `types/blocks.ts`:
 | `ic-popup` | OVERLAY | `trigger` (exit/timed/scroll), `headline`, `fields[]`, `ctaLabel` |
 
 ---
+
+## Per-section style 🔨
+
+Per-section colors/fonts/spacing live **inside the block**, in `page.content` JSON — no schema change. `types/blocks.ts` adds:
+
+```typescript
+export interface BlockStyle {
+  bgColor?: string; textColor?: string; accentColor?: string
+  headingFont?: string; bodyFont?: string; fontScale?: number
+  align?: 'left' | 'center' | 'right'
+  paddingY?: number; borderRadius?: number
+  buttonStyle?: ButtonStyle
+}
+// Block = BlockProps & { id: string; hidden?: boolean; style?: BlockStyle }
+```
+
+`BlockRenderer` wraps each block in a section element and applies `block.style` as inline CSS custom properties that **override the global theme tokens for that section only**. Unset fields fall back to the theme. The AI ops engine can set `block.style` via `update_block` (style is just part of the block). Applies on the published page too.
+
+## App look — Clyro dark
+
+The **app chrome** (top bar, rails, panels, gallery, dashboard) uses Clyro's warm-paper dark palette — **not** the funnel preview content, which keeps its own theme via `resolveTokens`. Tokens in [REFERENCE-CLYRO.md](REFERENCE-CLYRO.md): app bg `#1a1a1a`, panels `#222`, warm-white ink `#ffe`, borders = ink at low alpha (never gray), slate accent `#283f4d`, Inter body + Lora serif headings.
 
 ## FunnelSettings ✅
 
@@ -188,6 +219,7 @@ interface FunnelSettings {
 
 - Every block can be added, removed, reordered, duplicated
 - Every prop editable (inline or via Settings)
-- Every setting exposed; AI can modify everything (blocks + settings + customCss)
+- Every setting exposed; AI can modify everything (blocks + settings + customCss + raw `code` block)
 - No locked sections, no "pro only" blocks
-- **AI composes from existing block/section types first** — only invents when the user genuinely needs something the library lacks (Clyro's rule)
+- **AI composes from existing block/section types first** — only invents new structure (or drops to a raw `code` block) when the user genuinely needs something the library lacks (Clyro's rule)
+- **But it edits only when the request is clear.** Full power is the *ceiling*, not the default reflex — the AI thinks first and won't touch the funnel on a question or a vague ask. See [AI.md](AI.md#core-doctrine--think-first-edit-only-when-clear).

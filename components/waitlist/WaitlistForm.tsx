@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 interface Step {
   question: string
   options: { key: string; label: string }[]
+  isEmail?: boolean
 }
 
 const STEPS: Step[] = [
@@ -42,7 +43,7 @@ const STEPS: Step[] = [
     question: 'Enter your best email to join the waitlist',
     options: [], // email input step
     isEmail: true,
-  } as Step & { isEmail?: boolean },
+  },
 ]
 
 export function WaitlistForm() {
@@ -62,6 +63,20 @@ export function WaitlistForm() {
     setError('')
   }, [step])
 
+  const handleSubmit = useCallback(async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      // Store to Supabase or API
+      await new Promise((r) => setTimeout(r, 800))
+      setSubmitted(true)
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [])
+
   const handleNext = useCallback(() => {
     if (isLast) {
       if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -77,26 +92,12 @@ export function WaitlistForm() {
     }
     setError('')
     setStep((s) => s + 1)
-  }, [isLast, selected, email])
+  }, [isLast, selected, email, handleSubmit])
 
   const handleBack = useCallback(() => {
     setError('')
     setStep((s) => Math.max(0, s - 1))
   }, [])
-
-  const handleSubmit = async () => {
-    setSubmitting(true)
-    setError('')
-    try {
-      // Store to Supabase or API
-      await new Promise((r) => setTimeout(r, 800))
-      setSubmitted(true)
-    } catch {
-      setError('Something went wrong. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   if (submitted) {
     return (
@@ -158,7 +159,7 @@ export function WaitlistForm() {
         <h3 className="mb-5 text-lg font-semibold text-white">{currentStep.question}</h3>
 
         {/* Options or email input */}
-        {(currentStep as any).isEmail ? (
+        {currentStep.isEmail ? (
           <div>
             <input
               type="email"

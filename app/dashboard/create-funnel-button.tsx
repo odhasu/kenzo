@@ -5,8 +5,8 @@ import Link from 'next/link'
 export function CreateFunnelButton() {
   return (
     <Link
-      href="/create"
-      className="inline-flex items-center rounded-full bg-black px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+      href="/dashboard/templates"
+      className="inline-flex items-center rounded-full bg-[#ffe] px-5 py-2 text-sm font-semibold text-[#1a1a1a] shadow-sm transition hover:bg-[#ffffeecc]"
     >
       + New funnel
     </Link>

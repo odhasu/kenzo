@@ -1,5 +1,5 @@
 // Shared default block props and base funnel template.
-// Imported by: components/editor/EditorLayout.tsx, app/create/page.tsx
+// Imported by: components/editor/EditorLayout.tsx, app/templates/page.tsx
 
 import type { Block, BlockType, FunnelSettings } from '@/types/blocks'
 import { DEFAULT_SETTINGS } from '@/types/blocks'
@@ -14,6 +14,7 @@ export const DEFAULT_PROPS: Record<BlockType, Block['props']> = {
   button:  { label: 'Get Started', href: '#', style: 'filled', size: 'lg' },
   image:   { src: '', alt: '', fit: 'cover', width: '', height: '' },
   form:    { fields: ['email'] },
+  code:    { html: '<!-- your html/css/js -->' },
   'ic-hero': {
     badge: 'MAKE 2026 YOUR BIGGEST YEAR YET',
     headline: 'See How Regular People Are Building $5K-$30K/Month High-Ticket Reselling Businesses',
@@ -245,15 +246,6 @@ export const TEMPLATES: Record<string, Template> = {
 }
 
 /**
- * Gets the default template for an archetype.
- * Falls back to 'innercircle' (application) if archetype unknown.
- */
-export function getTemplateByArchetype(archetype: TemplateArchetype): Template {
-  const match = Object.values(TEMPLATES).find(t => t.archetype === archetype)
-  return match || TEMPLATES['innercircle']
-}
-
-/**
  * Creates a full funnel from a template — valid blocks + settings.
  * Uses DEFAULT_PROPS for props, overridden by template.seedProps.
  */
@@ -277,35 +269,3 @@ export function makeFunnelFromTemplate(template: Template): { blocks: Block[]; s
   return { blocks, settings }
 }
 
-/**
- * Picks a template archetype based on onboarding answers.
- * Heuristic: offer type + price point + tone → best archetype.
- */
-export function pickArchetype(answers: Record<string, string>): TemplateArchetype {
-  const offer = (answers.offer_type || answers.offer || '').toLowerCase()
-  const price = (answers.price || '').toLowerCase()
-  const tone = (answers.tone || '').toLowerCase()
-
-  // High price + coaching/consulting → application
-  if (offer.includes('coach') || offer.includes('consult') || offer.includes('program')) {
-    return 'application'
-  }
-  // Done-for-you / service → agency
-  if (offer.includes('dfy') || offer.includes('done-for-you') || offer.includes('agency') || offer.includes('service')) {
-    return 'agency'
-  }
-  // Course / training → vsl
-  if (offer.includes('course') || offer.includes('training') || offer.includes('program')) {
-    return 'vsl'
-  }
-  // Early stage / pre-launch → waitlist
-  if (tone.includes('hype') || offer.includes('waitlist') || offer.includes('coming soon') || !price) {
-    return 'waitlist'
-  }
-  // High ticket by price → application
-  if (price && parseInt(price.replace(/[^0-9]/g, '')) >= 500) {
-    return 'application'
-  }
-
-  return 'application' // default
-}

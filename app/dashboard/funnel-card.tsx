@@ -13,25 +13,40 @@ type Funnel = {
 export function FunnelCard({ funnel }: { funnel: Funnel }) {
   return (
     <Link
-      href={`/dashboard/funnels/${funnel.id}`}
-      className="group block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow-md"
+      href={`/dashboard/funnels/${funnel.id}/edit`}
+      style={{
+        display: 'block',
+        borderRadius: '1rem',
+        border: '1px solid #ffffee14',
+        background: '#222',
+        padding: '20px',
+        textDecoration: 'none',
+        transition: 'border-color 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffee2e' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#ffffee14' }}
     >
-      <div className="mb-3 flex items-start justify-between">
-        <h3 className="text-sm font-semibold text-black group-hover:text-gray-700">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <h3 style={{
+          fontSize: '14px', fontWeight: 600, color: '#ffe',
+          margin: 0, fontFamily: 'inherit',
+        }}>
           {funnel.name}
         </h3>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-            funnel.status === 'published'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-gray-100 text-gray-500 border border-gray-200'
-          }`}
-        >
+        <span style={{
+          borderRadius: '100px', padding: '2px 10px', fontSize: '10px',
+          fontWeight: 600,
+          background: funnel.status === 'published' ? '#ffffee0f' : '#ffffee08',
+          color: funnel.status === 'published' ? '#6ba0c0' : '#ffffeea6',
+          border: `1px solid ${funnel.status === 'published' ? '#ffffee2e' : '#ffffee14'}`,
+        }}>
           {funnel.status}
         </span>
       </div>
-      <p className="mb-3 text-xs text-gray-400">/f/{funnel.slug}</p>
-      <p className="text-[11px] text-gray-300">
+      <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#ffffee2e', fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
+        /f/{funnel.slug}
+      </p>
+      <p style={{ margin: 0, fontSize: '11px', color: '#ffffee2e' }}>
         {new Date(funnel.created_at).toLocaleDateString()}
       </p>
     </Link>

@@ -126,21 +126,23 @@ Theme switcher (`Aura ▾`) · **Chat** toggle · **Inspect** (✦) · **Preview
 | Shopify theme | **Funnel** (one or more pages) | ✅ |
 | Theme sections (Hero banner, Featured collection…) | **IC sections / blocks** (`ic-hero`, `ic-ticker`, `ic-cards`, `ic-faq`, `ic-apply`, `ic-cta`, `ic-results`) | ✅ |
 | Section groups HEADER / TEMPLATE / FOOTER / OVERLAY | Same group names; OVERLAY = exit-intent / lead-capture popups + announcement bar | 📋 |
-| Left-rail AI chat | **AI Builder** panel (`AiBuilderPanel.tsx`) | ✅ |
-| Model picker in composer | model override in AI panel | 🔨 |
-| 📎 attach/upload | image/asset upload into composer | 📋 |
-| Chat / Image mode | Chat only for now (no image-gen) | — |
-| **Inspect** (click element → AI context) | **Click block in preview → scopes next AI edit to it** (maps to existing targeted `ops`) | 📋 |
+| Left-rail AI chat | **Kenzo AI** chat (`AiBuilderPanel.tsx`) — left rail, send→Stop | 🔨 (Part 5) |
+| Model picker in composer | **removed** — one model ("Kenzo AI"), no picker, no provider names | 🔨 (Part 5) |
+| 📎 attach/upload | **dropped** — no file upload | — |
+| Chat / Image mode | Chat only (no image-gen, no upload) | — |
+| Chat sessions sidebar | **removed** — single chat per funnel (memory by `funnel_id`) | 🔨 (Part 5) |
+| **Inspect** (click element → AI context) | **Click section in preview → select + open its settings + scope next AI edit** (targeted `ops`) | 🔨 (Part 5) |
 | Live preview | `BlockRenderer` + `resolveTokens(settings)` | ✅ |
 | Code view | read-only **block JSON** viewer | 📋 |
 | Changes (session diff) | session diff of AI ops | 📋 (deferred) |
-| Sections tree | left sidebar section/element/layers → regrouped tree | 🔨 |
-| Theme settings | **FunnelSettings** Settings tab | ✅ |
+| Sections tree | **right-panel section list → per-section settings** (text/colors/fonts) | 🔨 (Part 5) |
+| Theme settings | **FunnelSettings** Theme tab (global defaults) | ✅ |
 | Preview data (mock products/CSV) | **Preview-data layer** — mock offer/leads/testimonials/pricing | 🔨 |
-| Templates page | **/templates gallery** | 📋 |
+| Templates page | **/templates gallery** — the only create path | 🔨 (Part 5) |
 | Library (Pro) | **Library** of saved sections | 📋 |
 | Export `.zip` (validated) | **Publish** to ISR `/f/[slug]` + share link (validate before publish) | 🔨 |
-| Credits per message | **none** — kenzo does not meter credits | — |
+| Credits / paid models | **none** — no metering, no billing, no locked models | — |
+| Build from scratch / onboarding | **none** — template-first only (scratch flow deleted) | — |
 | "Built by Clyro" promo bar | optional "Built with kenzo" badge on free funnels | 📋 |
 
 ## Notes / gaps

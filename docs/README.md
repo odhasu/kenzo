@@ -1,8 +1,10 @@
 # Kenzo Docs Hub
 
-**Kenzo is Clyro, for funnels.** A coach describes their offer in a left-rail AI chat; the funnel builds live in the center preview; they fine-tune via a right-rail Sections tree + Settings, then publish. Same builder model as [Clyro](REFERENCE-CLYRO.md) (AI theme builder for Shopify) — swapping "Shopify theme" for "high-ticket coaching funnel."
+**Kenzo is Clyro, for funnels.** A coach picks a template from the gallery, fine-tunes each section on the right (text, colors, fonts) and talks to **Kenzo AI** in the left-rail chat, then publishes. Same builder model as [Clyro](REFERENCE-CLYRO.md) (AI theme builder for Shopify) — swapping "Shopify theme" for "high-ticket coaching funnel."
 
 Target customer: coaches/creators selling $400–$1000+ offers who are non-technical but want a converting funnel live today.
+
+> **Current focus = Part 5** (template-first pivot). Build prompt: [prompts/part-5-template-editor.md](prompts/part-5-template-editor.md). It deletes the build-from-scratch flow, makes templates the only entry, and reworks the editor (one "Kenzo AI" model, per-section settings, Clyro-dark chrome).
 
 ## Status legend
 
@@ -20,10 +22,10 @@ Every doc tags features with where they stand:
 | 1 | [PRODUCT.md](PRODUCT.md) | Vision, target user, user journey, glossary, north-star metrics |
 | 2 | [ARCHITECTURE.md](ARCHITECTURE.md) | Route map, folder ownership, rendering, live-build + scoped-edit architecture, AI provider chain |
 | 3 | [DATA-MODEL.md](DATA-MODEL.md) | All tables, columns, RLS, relationships, migration numbering |
-| 4 | [CREATE-FLOW.md](CREATE-FLOW.md) | Live-chat split-screen: UX, question script, answer→business_profiles mapping, streaming, reliability |
-| 5 | [EDITOR.md](EDITOR.md) | 3-panel builder: AI composer, Inspect/click-to-scope, Sections tree, Settings, Code view, Preview-data |
-| 6 | [AI.md](AI.md) | Provider chain, prompts, JSON/ops contracts, model selection, scoped edits, retries/validation/streaming |
-| 7 | [TEMPLATES.md](TEMPLATES.md) | Template gallery + Library: the 6 templates, gallery page, saved sections |
+| 4 | [CREATE-FLOW.md](CREATE-FLOW.md) | Template-first create: dashboard → /templates → "Use template" → editor (scratch flow removed) |
+| 5 | [EDITOR.md](EDITOR.md) | 3-panel builder: Kenzo AI chat, Inspect/click-to-scope, section list → per-section settings, Theme, per-section style, app look |
+| 6 | [AI.md](AI.md) | One model (Kenzo AI), prompts, JSON/ops contracts, scoped edits, retries/validation/streaming |
+| 7 | [TEMPLATES.md](TEMPLATES.md) | Template gallery (the only create path) + the clyro.com clone target + Library |
 | 8 | [INSIGHTS.md](INSIGHTS.md) | 4 metric groups, event tracking, web-vitals beacon, aggregation SQL |
 | 9 | [LEADS-CRM.md](LEADS-CRM.md) | Leads pipeline + how it feeds insights |
 | 10 | [ROADMAP.md](ROADMAP.md) | Build phases, integrate-vs-scrap, per-phase acceptance criteria |
