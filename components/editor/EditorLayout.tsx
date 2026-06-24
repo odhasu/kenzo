@@ -700,13 +700,13 @@ function SectionListPanel({
         }}>
           <span>No sections yet</span>
           <Link
-            href="/templates"
+            href="/dashboard"
             style={{
               fontSize: '11px', color: '#6ba0c0', textDecoration: 'none',
               padding: '4px 8px', borderRadius: '4px',
             }}
           >
-            Browse templates →
+            New funnel →
           </Link>
         </div>
       ) : (
@@ -735,7 +735,7 @@ function SectionListPanel({
           </div>
           <div style={{ marginTop: '12px' }}>
             <Link
-              href="/templates"
+              href="/dashboard"
               style={{
                 display: 'block', textAlign: 'center', fontSize: '11px',
                 color: '#ffffeea6', textDecoration: 'none',
@@ -745,7 +745,7 @@ function SectionListPanel({
               onMouseEnter={e => { e.currentTarget.style.color = '#ffe'; e.currentTarget.style.borderColor = '#ffffee2e' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#ffffeea6'; e.currentTarget.style.borderColor = '#ffffee14' }}
             >
-              Browse templates
+              New funnel
             </Link>
           </div>
         </>
