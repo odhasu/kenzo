@@ -13,18 +13,21 @@ export async function POST(request: Request) {
 
     const { templateId } = await request.json()
 
-    // Try DB first, fall back to code
+    // Try DB first (user's custom + system), fall back to code
     let template: Template | undefined
 
     const { data: dbTemplate } = await supabase
       .from('templates')
       .select('*')
-      .eq('id', templateId)
+      .eq('template_id', templateId)
+      .or(`user_id.is.null,user_id.eq.${user.id}`)
+      .order('user_id', { ascending: true, nullsFirst: true })
+      .limit(1)
       .maybeSingle()
 
     if (dbTemplate) {
       template = {
-        id: dbTemplate.id,
+        id: dbTemplate.template_id,
         name: dbTemplate.name,
         description: dbTemplate.description,
         archetype: dbTemplate.archetype,
