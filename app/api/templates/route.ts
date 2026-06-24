@@ -8,7 +8,6 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Get DB templates: system + user's own
     let query = supabase.from('templates').select('*').order('created_at', { ascending: true })
 
     if (user) {
@@ -20,17 +19,17 @@ export async function GET() {
     const { data: dbTemplates, error } = await query
 
     if (error) {
-      console.error('Failed to fetch templates:', error)
-      return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 })
+      console.error('Failed to fetch templates from DB, falling back to code templates:', error)
+      return NextResponse.json(Object.values(TEMPLATES))
     }
 
-    // Merge: DB templates override code templates by id
+    // Merge: DB templates override code templates by template_id (slug)
     const merged: Record<string, Template> = { ...TEMPLATES }
 
     if (dbTemplates) {
       for (const t of dbTemplates) {
-        merged[t.id] = {
-          id: t.id,
+        merged[t.template_id] = {
+          id: t.template_id,
           name: t.name,
           description: t.description,
           archetype: t.archetype,
