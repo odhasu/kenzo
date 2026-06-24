@@ -72,6 +72,30 @@ export function DashboardSidebar({ firstName }: { firstName: string }) {
           </svg>
           Home
         </Link>
+        <Link
+          href="/dashboard/templates"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: 500,
+            color: isActive('/dashboard/templates') ? '#ffe' : '#ffffeea6',
+            textDecoration: 'none',
+            background: isActive('/dashboard/templates') ? '#ffffee1f' : 'transparent',
+            transition: 'background 0.15s',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="1" width="5" height="5" rx="1" />
+            <rect x="10" y="1" width="5" height="5" rx="1" />
+            <rect x="1" y="10" width="5" height="5" rx="1" />
+            <rect x="10" y="10" width="5" height="5" rx="1" />
+          </svg>
+          Templates
+        </Link>
       </nav>
 
       {/* Quick links */}
