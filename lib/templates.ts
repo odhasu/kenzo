@@ -117,7 +117,7 @@ export const TEMPLATES: Record<string, Template> = {
   'template-1': {
     id: 'template-1',
     name: 'Template #1',
-    description: 'High Ticket AI Dropshipping Funnel — A full stack high ticket AI dropshipping experience for 2026. Best for coaches, consultants, and course creators selling $400–$1000+ offers. Includes hero, ticker, cards, results, FAQ, and CTA blocks.',
+    description: 'For coaches & consultants selling $400–$1000+ offers. Hero, ticker, cards, results, FAQ, CTA.',
     archetype: 'application',
     blockOrder: ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-results', 'ic-faq', 'ic-cta'],
     theme: 'dark-green',
@@ -126,7 +126,7 @@ export const TEMPLATES: Record<string, Template> = {
   'template-2': {
     id: 'template-2',
     name: 'Template #2',
-    description: 'Waitlist / Coming Soon — A comprehensive waitlist funnel designed to capture leads before your launch. Perfect for building hype and collecting early signups. Includes hero, ticker, cards, FAQ, and CTA blocks.',
+    description: 'Capture leads before launch. Hero, ticker, cards, FAQ, CTA.',
     archetype: 'waitlist',
     blockOrder: ['ic-hero', 'ic-ticker', 'ic-cards', 'ic-faq', 'ic-cta'],
     theme: 'dark-minimal',
@@ -135,7 +135,7 @@ export const TEMPLATES: Record<string, Template> = {
   'template-3': {
     id: 'template-3',
     name: 'Template #3',
-    description: 'Business Consultant Landing Page — A credible business consultant funnel designed to convert high-value clients. Professional layout with hero, cards, results, FAQ, and CTA blocks. Ideal for agencies and service providers.',
+    description: 'For agencies & service providers. Hero, cards, results, FAQ, CTA.',
     archetype: 'agency',
     blockOrder: ['ic-hero', 'ic-cards', 'ic-results', 'ic-faq', 'ic-cta'],
     theme: 'light-blue',

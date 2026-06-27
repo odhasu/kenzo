@@ -1,19 +1,31 @@
 import type { Metadata } from "next";
+import { Inter, Lora } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-lora",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Kenzo — Funnel Builder",
-  description: "Build high-converting funnels, fast.",
+  description: "Build and scale high-ticket funnels with AI.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <head>
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700,800&display=swap" rel="stylesheet" />
-      </head>
-      <body className="min-h-full flex flex-col bg-white text-black">{children}</body>
+    <html lang="en" className={`dark h-full antialiased ${inter.variable} ${lora.variable}`}>
+      <body className="min-h-full bg-kenzo-deep text-kenzo-text font-[family-name:var(--font-inter)]">
+        {children}
+      </body>
     </html>
   );
 }

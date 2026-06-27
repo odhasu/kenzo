@@ -1,20 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { DashboardSidebar } from './sidebar'
+import { getUserOrRedirect, getUserName } from "@/lib/auth";
+import { DashboardSidebar } from "@/components/dashboard/sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const fullName: string | undefined = user?.user_metadata?.full_name
-  const email: string | undefined = user?.email
-  const firstName = fullName?.split(' ')[0] ?? email?.split('@')[0] ?? 'there'
+  const user = await getUserOrRedirect();
+  const firstName = getUserName(user).split(" ")[0];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#1a1a1a' }}>
+    <div className="flex min-h-screen">
       <DashboardSidebar firstName={firstName} />
-      <main style={{ flex: 1, marginLeft: '260px' }}>{children}</main>
+      <main className="flex-1 ml-[260px] bg-gradient-to-br from-kenzo-deep via-kenzo-surface to-teal-950/20">
+        {children}
+      </main>
     </div>
-  )
+  );
 }
-

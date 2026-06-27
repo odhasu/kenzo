@@ -1,119 +1,112 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import type { Template } from '@/lib/templates'
-import { makeFunnelFromTemplate } from '@/lib/templates'
-import { TemplateCard } from '@/components/templates/TemplateCard'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type DbTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  blocks: unknown[];
+  settings: unknown;
+  is_public: boolean;
+  created_at: string;
+};
 
 export default function TemplatesPage() {
-  const router = useRouter()
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const [templates, setTemplates] = useState<DbTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/templates')
-      .then(r => r.json())
-      .then(data => {
-        setTemplates(Array.isArray(data) ? data : [])
-        setLoading(false)
+    fetch("/api/templates")
+      .then((r) => r.json())
+      .then((data) => {
+        setTemplates(Array.isArray(data) ? data : []);
+        setLoading(false);
       })
-      .catch(() => setLoading(false))
-  }, [])
+      .catch(() => setLoading(false));
+  }, []);
 
-  const handleUse = async (templateId: string) => {
-    const res = await fetch('/api/templates/use', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  async function handleUse(templateId: string) {
+    const res = await fetch("/api/templates/use", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ templateId }),
-    })
-    const data = await res.json()
+    });
+    const data = await res.json();
     if (data.redirect) {
-      router.push(data.redirect)
+      router.push(data.redirect);
     } else if (data.error) {
-      alert(data.error)
+      alert(data.error);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#111',
-        color: '#ffe',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 24px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <button
-            onClick={() => router.push('/dashboard')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#ffffeea6',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontFamily: 'inherit',
-              padding: 0,
-              marginBottom: '12px',
-              display: 'block',
-            }}
-          >
-            ← Back
-          </button>
-          <h1
-            style={{
-              fontSize: '24px',
-              fontWeight: 700,
-              color: '#ffe',
-              margin: '0 0 8px',
-              fontFamily: "'Lora', Georgia, serif",
-            }}
-          >
-            Choose a template
-          </h1>
-          <p style={{ fontSize: '14px', color: '#ffffeea6', margin: 0, maxWidth: '560px' }}>
-            Pick a template to start building your funnel. You can customize and make it exactly what you want anytime.
-          </p>
-        </div>
+    <div className="max-w-4xl mx-auto px-6 py-10">
+      {/* Header */}
+      <div className="mb-8">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="text-[13px] text-kenzo-text-secondary hover:text-kenzo-text transition-colors mb-3 block"
+        >
+          ← Back
+        </button>
+        <h1 className="font-[family-name:var(--font-lora)] text-2xl font-bold text-kenzo-text mb-1">
+          Choose a template
+        </h1>
+        <p className="text-sm text-kenzo-text-secondary">
+          Pick a starting point. Every funnel is fully customizable with AI.
+        </p>
+      </div>
 
-        {/* Template list */}
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {[1, 2, 3].map(n => (
-              <div
-                key={n}
-                style={{
-                  height: '160px',
-                  borderRadius: '1rem',
-                  background: '#1a1a1a',
-                  border: '1px solid #ffffff14',
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {templates.map(template => {
-              const { blocks, settings } = makeFunnelFromTemplate(template)
-              return (
-                <TemplateCard
-                  key={template.id}
-                  templateId={template.id}
-                  name={template.name}
-                  description={template.description}
-                  blocks={blocks}
-                  settings={settings}
-                  onUse={handleUse}
-                  onEdit={() => router.push(`/dashboard/templates/${template.id}`)}
-                />
-              )
-            })}
-          </div>
-        )}
-      </main>
+      {/* Template grid */}
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="rounded-kenzo-card border border-kenzo-border-subtle bg-kenzo-card h-48 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map((template) => (
+            <button
+              key={template.id}
+              onClick={() => handleUse(template.id)}
+              className="rounded-kenzo-card border border-kenzo-border-subtle bg-kenzo-card overflow-hidden text-left hover:border-kenzo-border transition-colors group"
+            >
+              {/* Preview placeholder */}
+              <div className="aspect-[4/3] bg-gradient-to-br from-kenzo-surface to-teal-950/30 flex items-center justify-center">
+                <span className="text-3xl opacity-20">⚡</span>
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-kenzo-text text-sm group-hover:text-kenzo-accent transition-colors">
+                  {template.name}
+                </h3>
+                <p className="text-xs text-kenzo-text-muted mt-1 capitalize">{template.category}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && templates.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-kenzo-text-muted">No templates available yet.</p>
+        </div>
+      )}
+
+      {/* Bottom help link */}
+      <p className="mt-10 text-center text-xs text-kenzo-text-dim">
+        Need a custom funnel or having issues?{" "}
+        <a href="#" className="text-kenzo-text-secondary hover:text-kenzo-text transition-colors underline underline-offset-2">
+          Contact support
+        </a>
+      </p>
     </div>
-  )
+  );
 }

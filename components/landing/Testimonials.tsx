@@ -1,58 +1,44 @@
-const QUOTES = [
+"use client";
+
+const quotes = [
   {
-    quote: "I've had a think, and I'd be stupid to miss out on this.",
-    author: 'Agency owner',
-    context: 'After a 15-minute demo call',
+    text: "Kenzo helped me go from zero to $8k/mo in 3 weeks. The AI wrote better copy than my $2k copywriter.",
+    name: "Marcus T.",
+    role: "Fitness Coach",
   },
   {
-    quote: "It's almost too good to be true, but it's not.",
-    author: 'Coaching agency',
-    context: 'During onboarding',
+    text: "I built my entire sales funnel in an afternoon. Published it the same day. Got my first lead within hours.",
+    name: "Sarah L.",
+    role: "Business Consultant",
   },
   {
-    quote: "It's ridiculous how much time it saves me.",
-    author: 'High-ticket coach',
-    context: 'First month using OpBot',
+    text: "The drag-and-drop editor is insane. I'm not technical at all and I was able to customize everything perfectly.",
+    name: "Jordan K.",
+    role: "Marketing Agency Owner",
   },
-  {
-    quote: 'Saved me a ton on software and team, while improving my systems big time!',
-    author: 'Agency owner',
-    context: 'Two months in',
-  },
-]
+];
 
 export function Testimonials() {
   return (
-    <section className="relative z-[1] bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-24">
-        {/* Eyebrow */}
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">
-          Testimonials
-        </p>
-
-        {/* Headline */}
-        <h2 className="mt-3 text-4xl font-bold tracking-tight text-black sm:text-5xl leading-[1.1]">
-          Real reactions, from real demo calls.
-        </h2>
-
-        {/* Quote cards */}
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {QUOTES.map((item, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
-            >
-              <p className="text-sm text-gray-700 leading-relaxed">
-                &ldquo;{item.quote}&rdquo;
-              </p>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-semibold text-black">{item.author}</p>
-                <p className="text-xs text-gray-400">{item.context}</p>
+    <section id="testimonials" className="py-20 sm:py-28 bg-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="text-center mb-14">
+          <h2 className="font-[family-name:var(--font-lora)] text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Trusted by coaches & agency owners
+          </h2>
+        </div>
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {quotes.map((q) => (
+            <div key={q.name} className="rounded-xl border border-gray-100 bg-gray-50/50 p-6">
+              <p className="text-gray-600 leading-relaxed mb-4 text-sm">&ldquo;{q.text}&rdquo;</p>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{q.name}</p>
+                <p className="text-xs text-gray-400">{q.role}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
     </section>
-  )
+  );
 }

@@ -1,5 +1,51 @@
 import type { IcApplyProps, FunnelSettings } from '@/types/blocks'
-import { ApplyForm } from '@/components/innercircle/ApplyForm'
+
+function ApplyForm() {
+  return (
+    <form
+      onSubmit={(e) => e.preventDefault()}
+      style={{
+        maxWidth: '500px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+      }}
+    >
+      <input
+        type="email"
+        placeholder="Your email"
+        required
+        style={{
+          padding: '14px 16px',
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          fontSize: '15px',
+          fontFamily: 'inherit',
+          outline: 'none',
+        }}
+      />
+      <button
+        type="submit"
+        style={{
+          padding: '14px 24px',
+          borderRadius: 'var(--radius)',
+          border: 'none',
+          background: 'var(--accent)',
+          color: '#000',
+          fontSize: '15px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        }}
+      >
+        Submit Application
+      </button>
+    </form>
+  )
+}
 
 export function IcApplyBlock({ props, settings }: { props: IcApplyProps; settings?: FunnelSettings }) {
   const gradientOn = settings?.gradientHeadlines !== false
